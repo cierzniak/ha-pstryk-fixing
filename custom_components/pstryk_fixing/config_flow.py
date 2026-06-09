@@ -1,0 +1,108 @@
+"""Config flow for the Pstryk Fixing integration."""
+
+from __future__ import annotations
+
+from typing import Any
+
+import voluptuous as vol
+from homeassistant.config_entries import ConfigFlow, ConfigFlowResult
+from homeassistant.helpers.aiohttp_client import async_get_clientsession
+from homeassistant.helpers.selector import (
+    BooleanSelector,
+    SelectOptionDict,
+    SelectSelector,
+    SelectSelectorConfig,
+    SelectSelectorMode,
+)
+
+from .api import PstrykApiClient, PstrykApiError
+from .const import (
+    CONF_INCLUDE_SELL,
+    CONF_OPERATOR,
+    CONF_TARIFF,
+    DEFAULT_BASE_URL,
+    DEFAULT_INCLUDE_SELL,
+    DOMAIN,
+)
+
+
+class PstrykConfigFlow(ConfigFlow, domain=DOMAIN):
+    """Two steps: operator -> tariff + buy/sell mode. The API URL is fixed."""
+
+    VERSION = 1
+
+    def __init__(self) -> None:
+        self._operator: str | None = None
+        self._operators: list[dict[str, str]] = []
+
+    async def async_step_user(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        if user_input is not None:
+            self._operator = user_input[CONF_OPERATOR]
+            return await self.async_step_tariff()
+
+        try:
+            self._operators = await self._client().async_list_operators()
+        except PstrykApiError:
+            return self.async_abort(reason="cannot_connect")
+
+        options = [
+            SelectOptionDict(value=op["code"], label=op.get("name", op["code"]))
+            for op in self._operators
+            if "code" in op
+        ]
+        return self.async_show_form(
+            step_id="user",
+            data_schema=vol.Schema(
+                {
+                    vol.Required(CONF_OPERATOR): SelectSelector(
+                        SelectSelectorConfig(
+                            options=options, mode=SelectSelectorMode.DROPDOWN
+                        )
+                    )
+                }
+            ),
+        )
+
+    async def async_step_tariff(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        assert self._operator is not None
+
+        if user_input is not None:
+            await self.async_set_unique_id(f"{self._operator}:{user_input[CONF_TARIFF]}")
+            self._abort_if_unique_id_configured()
+            return self.async_create_entry(
+                title=f"Pstryk {self._operator}/{user_input[CONF_TARIFF]}",
+                data={
+                    CONF_OPERATOR: self._operator,
+                    CONF_TARIFF: user_input[CONF_TARIFF],
+                    CONF_INCLUDE_SELL: user_input[CONF_INCLUDE_SELL],
+                },
+            )
+
+        try:
+            tariffs = await self._client().async_list_tariffs(self._operator)
+        except PstrykApiError:
+            return self.async_abort(reason="cannot_connect")
+
+        options = [SelectOptionDict(value=code, label=code) for code in tariffs]
+        return self.async_show_form(
+            step_id="tariff",
+            data_schema=vol.Schema(
+                {
+                    vol.Required(CONF_TARIFF): SelectSelector(
+                        SelectSelectorConfig(
+                            options=options, mode=SelectSelectorMode.DROPDOWN
+                        )
+                    ),
+                    vol.Required(
+                        CONF_INCLUDE_SELL, default=DEFAULT_INCLUDE_SELL
+                    ): BooleanSelector(),
+                }
+            ),
+        )
+
+    def _client(self) -> PstrykApiClient:
+        return PstrykApiClient(DEFAULT_BASE_URL, async_get_clientsession(self.hass))

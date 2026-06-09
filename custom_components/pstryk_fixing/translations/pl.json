@@ -1,0 +1,36 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Pstryk Fixing",
+        "description": "Wybierz operatora dystrybucji.",
+        "data": { "operator": "Operator" }
+      },
+      "tariff": {
+        "title": "Taryfa",
+        "data": {
+          "tariff": "Taryfa",
+          "include_sell": "Pobieraj też ceny sprzedaży (odkupu)"
+        }
+      }
+    },
+    "error": { "cannot_connect": "Nie można połączyć się z API Pstryk." },
+    "abort": {
+      "already_configured": "Ta para operator/taryfa jest już skonfigurowana.",
+      "cannot_connect": "Nie można połączyć się z API Pstryk."
+    }
+  },
+  "entity": {
+    "sensor": {
+      "current_price": { "name": "Cena bieżąca" },
+      "current_advice": {
+        "name": "Wskazówka",
+        "state": { "use": "Używaj", "neutral": "Neutralnie", "limit": "Ogranicz" }
+      },
+      "current_sell_price": { "name": "Cena sprzedaży bieżąca" }
+    },
+    "binary_sensor": {
+      "sell_now": { "name": "Sprzedawaj teraz" }
+    }
+  }
+}
