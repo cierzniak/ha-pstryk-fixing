@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import logging
-from datetime import datetime, timedelta
 from typing import Any
 
 from homeassistant.config_entries import ConfigEntry
@@ -12,7 +11,14 @@ from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, Upda
 from homeassistant.util import dt as dt_util
 
 from .api import PstrykApiClient, PstrykApiError
-from .const import CONF_INCLUDE_SELL, CONF_OPERATOR, CONF_TARIFF, DOMAIN, UPDATE_INTERVAL
+from .const import (
+    CONF_INCLUDE_SELL,
+    CONF_OPERATOR,
+    CONF_TARIFF,
+    DOMAIN,
+    UPDATE_INTERVAL,
+)
+from .outlook import extract_now_block, extract_today_summary, resolve_current_hour
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -42,25 +48,14 @@ class PstrykOutlookCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         except PstrykApiError as err:
             raise UpdateFailed(str(err)) from err
 
+    def now_block(self) -> dict[str, Any]:
+        """Return the server-computed forward-looking 'now' block (may be empty)."""
+        return extract_now_block(self.data)
+
+    def today_summary(self) -> dict[str, Any]:
+        """Return today's aggregate summary (cheapest/dearest hour, counts)."""
+        return extract_today_summary(self.data)
+
     def current_hour(self) -> dict[str, Any] | None:
-        """Return the hour row covering 'now', matched by its absolute startsAt."""
-        today = (self.data or {}).get("today") or {}
-        hours = today.get("hours")
-        if not isinstance(hours, list):
-            return None
-
-        now = dt_util.utcnow()
-        for row in hours:
-            if not isinstance(row, dict):
-                continue
-            start = self._parse(row.get("startsAt"))
-            if start is not None and start <= now < start + timedelta(hours=1):
-                return row
-        return None
-
-    @staticmethod
-    def _parse(value: Any) -> datetime | None:
-        if not isinstance(value, str):
-            return None
-        parsed = dt_util.parse_datetime(value)
-        return None if parsed is None else dt_util.as_utc(parsed)
+        """Return the hour row covering 'now' (server-preferred, client fallback)."""
+        return resolve_current_hour(self.data, dt_util.utcnow())

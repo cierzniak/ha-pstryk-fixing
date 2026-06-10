@@ -71,7 +71,8 @@ class PstrykConfigFlow(ConfigFlow, domain=DOMAIN):
         assert self._operator is not None
 
         if user_input is not None:
-            await self.async_set_unique_id(f"{self._operator}:{user_input[CONF_TARIFF]}")
+            unique_id = f"{self._operator}:{user_input[CONF_TARIFF]}"
+            await self.async_set_unique_id(unique_id)
             self._abort_if_unique_id_configured()
             return self.async_create_entry(
                 title=f"Pstryk {self._operator}/{user_input[CONF_TARIFF]}",

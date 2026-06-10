@@ -33,10 +33,11 @@ class PstrykSellNowBinarySensor(
     def __init__(self, coordinator: PstrykOutlookCoordinator) -> None:
         super().__init__(coordinator)
         device = f"{coordinator.operator}_{coordinator.tariff}"
+        name = f"Pstryk {coordinator.operator.upper()} {coordinator.tariff.upper()}"
         self._attr_unique_id = f"{device}_sell_now"
         self._attr_device_info = {
             "identifiers": {(DOMAIN, device)},
-            "name": f"Pstryk {coordinator.operator.upper()} {coordinator.tariff.upper()}",
+            "name": name,
             "manufacturer": "Pstryk Fixing",
             "entry_type": "service",
         }

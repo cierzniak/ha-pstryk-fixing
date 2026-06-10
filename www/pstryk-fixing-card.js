@@ -7,6 +7,10 @@
  * sell }). Each hour is coloured by its consumption advice (use / neutral /
  * limit) with a badge for sell hours; the current hour is highlighted.
  *
+ * A header summarises the live state from the same sensor's `now` block
+ * (current advice, next cheap/sell hour) and `today_summary` (cheap/expensive
+ * hour counts), so the card answers "what now / what next" at a glance.
+ *
  * Usage (Lovelace YAML):
  *   type: custom:pstryk-fixing-card
  *   entity: sensor.pstryk_energa_g11f_current_price
@@ -52,6 +56,64 @@ class PstrykFixingCard extends HTMLElement {
     return -1;
   }
 
+  _fmtHour(ref) {
+    const h = ref ? Number.parseInt(ref.hour, 10) : NaN;
+    return Number.isFinite(h) ? `${String(h).padStart(2, "0")}:00` : "-";
+  }
+
+  _price(value) {
+    return Number.isFinite(value) ? Number(value).toFixed(2) : null;
+  }
+
+  _stat(cssClass, label, value) {
+    return `<div class="pf-stat ${cssClass}">
+        <span class="pf-stat-k">${esc(label)}</span>
+        <span class="pf-stat-v">${esc(value)}</span>
+      </div>`;
+  }
+
+  _header(nowBlock, summary, hours, nowIndex) {
+    const cur =
+      (nowBlock && nowBlock.hour) || (nowIndex >= 0 ? hours[nowIndex] : null);
+    const chips = [];
+
+    if (cur) {
+      const advice = LABELS[cur.consumption] ? cur.consumption : "neutral";
+      const price = this._price(cur.buyGrossPlnPerKwh);
+      const value = `${LABELS[advice]}${price ? ` · ${price} zł` : ""}`;
+      chips.push(this._stat(`pf-${advice}`, "Teraz", value));
+    }
+
+    const nextCheap = nowBlock && nowBlock.nextCheapHour;
+    if (nextCheap) {
+      const price = this._price(nextCheap.buyGrossPlnPerKwh);
+      const value = `${this._fmtHour(nextCheap)}${price ? ` · ${price} zł` : ""}`;
+      chips.push(this._stat("pf-use", "Tania od", value));
+    }
+
+    const nextSell = nowBlock && nowBlock.nextSellHour;
+    if (nextSell) {
+      const price = this._price(nextSell.sellGrossPlnPerKwh);
+      const value = `${this._fmtHour(nextSell)}${price ? ` · ${price} zł` : ""}`;
+      chips.push(this._stat("pf-sellstat", "Sprzedaj od", value));
+    }
+
+    let counts = "";
+    if (summary) {
+      const parts = [];
+      const use = Number.parseInt(summary.useHours, 10);
+      const limit = Number.parseInt(summary.limitHours, 10);
+      if (Number.isFinite(use)) parts.push(`${use} tanich`);
+      if (Number.isFinite(limit)) parts.push(`${limit} drogich`);
+      if (parts.length) {
+        counts = `<div class="pf-counts">${esc(`${parts.join(" · ")} godz. dziś`)}</div>`;
+      }
+    }
+
+    if (chips.length === 0 && !counts) return "";
+    return `<div class="pf-head">${chips.join("")}</div>${counts}`;
+  }
+
   _render() {
     if (!this._hass || !this._config) return;
     const stateObj = this._hass.states[this._config.entity];
@@ -72,6 +134,16 @@ class PstrykFixingCard extends HTMLElement {
     }
 
     const nowIndex = this._currentIndex(hours);
+    const nowBlock =
+      stateObj.attributes.now && typeof stateObj.attributes.now === "object"
+        ? stateObj.attributes.now
+        : null;
+    const summary =
+      stateObj.attributes.today_summary &&
+      typeof stateObj.attributes.today_summary === "object"
+        ? stateObj.attributes.today_summary
+        : null;
+    const header = this._header(nowBlock, summary, hours, nowIndex);
     const cells = hours
       .map((h, i) => {
         // Coerce/validate every value before it reaches the HTML string.
@@ -113,7 +185,14 @@ class PstrykFixingCard extends HTMLElement {
           .pf-now { border-color:#000; }
           .pf-legend { display:flex; flex-wrap:wrap; gap:.6rem; padding:8px 16px 0; font-size:.74rem; }
           .pf-sw { width:.8rem; height:.8rem; border-radius:3px; display:inline-block; vertical-align:middle; margin-right:.2rem; }
+          .pf-head { display:flex; flex-wrap:wrap; gap:.5rem; padding:8px 16px 0; }
+          .pf-stat { display:flex; flex-direction:column; border-radius:8px; padding:6px 10px; min-width:5.5rem; }
+          .pf-stat-k { font-size:.62rem; text-transform:uppercase; letter-spacing:.04em; opacity:.7; }
+          .pf-stat-v { font-weight:600; font-variant-numeric:tabular-nums; font-size:.82rem; }
+          .pf-sellstat { background:#e7f0fb; color:#0d3b73; box-shadow:inset 0 -3px 0 #1455a3; }
+          .pf-counts { padding:6px 16px 0; font-size:.72rem; opacity:.75; }
         </style>
+        ${header}
         <div class="pf-legend">
           <span><span class="pf-sw pf-use"></span>Używaj</span>
           <span><span class="pf-sw pf-neutral"></span>Neutralnie</span>

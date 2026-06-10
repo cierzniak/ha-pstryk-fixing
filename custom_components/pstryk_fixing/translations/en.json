@@ -27,7 +27,10 @@
         "name": "Advice",
         "state": { "use": "Use", "neutral": "Neutral", "limit": "Limit" }
       },
-      "current_sell_price": { "name": "Current sell price" }
+      "current_sell_price": { "name": "Current sell price" },
+      "next_cheap_hour": { "name": "Next cheap hour" },
+      "next_sell_hour": { "name": "Next sell hour" },
+      "cheapest_hour_today": { "name": "Cheapest hour today" }
     },
     "binary_sensor": {
       "sell_now": { "name": "Sell now" }

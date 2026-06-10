@@ -27,7 +27,10 @@
         "name": "Wskazówka",
         "state": { "use": "Używaj", "neutral": "Neutralnie", "limit": "Ogranicz" }
       },
-      "current_sell_price": { "name": "Cena sprzedaży bieżąca" }
+      "current_sell_price": { "name": "Cena sprzedaży bieżąca" },
+      "next_cheap_hour": { "name": "Następna tania godzina" },
+      "next_sell_hour": { "name": "Następna godzina sprzedaży" },
+      "cheapest_hour_today": { "name": "Najtańsza godzina dziś" }
     },
     "binary_sensor": {
       "sell_now": { "name": "Sprzedawaj teraz" }
