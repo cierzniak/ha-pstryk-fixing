@@ -132,7 +132,7 @@ class PstrykCurrentSellPriceSensor(_PstrykSensorBase):
 
 
 class PstrykNextCheapHourSensor(_PstrykSensorBase):
-    """Next still-open or upcoming 'use' hour - an automation trigger."""
+    """Next upcoming 'use' hour (starting after now) - an automation trigger."""
 
     _attr_translation_key = "next_cheap_hour"
     _attr_device_class = SensorDeviceClass.TIMESTAMP
@@ -160,7 +160,7 @@ class PstrykNextCheapHourSensor(_PstrykSensorBase):
 
 
 class PstrykNextSellHourSensor(_PstrykSensorBase):
-    """Next still-open or upcoming hour worth selling/discharging into."""
+    """Next upcoming hour (starting after now) worth selling/discharging into."""
 
     _attr_translation_key = "next_sell_hour"
     _attr_device_class = SensorDeviceClass.TIMESTAMP
