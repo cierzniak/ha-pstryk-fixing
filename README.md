@@ -9,14 +9,25 @@ and turns it into sensors you can drive automations from - when to run appliance
 or charge a battery (cheap hours), when to hold back (expensive hours), and when to
 discharge / sell back (high buy-back price).
 
-> Status: `0.1.0`, scaffold. The code follows current HA conventions but has **not
-> yet been exercised against a live Home Assistant** - install on your instance and
-> verify before relying on it for automations.
+> Status: `0.1.0`, early release. Verified against a live Home Assistant instance
+> (the integration sets up and its entities populate from the API). Review before
+> relying on it for critical automations. Requires a Pstryk Fixing API that exposes
+> `GET /api/v1/outlook` (live on `pstryk.gdansk.best`).
 
 ## Requirements
 
 - Home Assistant `2024.8` or newer.
 - Network access to `https://pstryk.gdansk.best` (the public API; no account, no key).
+
+## Installation (HACS)
+
+1. HACS -> Integrations -> ⋮ -> **Custom repositories**.
+2. Add `https://github.com/cierzniak/ha-pstryk-fixing` with category **Integration**.
+3. Install **Pstryk Fixing**, then restart Home Assistant.
+4. The Lovelace card ships in `www/`. HACS installs the integration, not the bundled
+   card - copy `www/pstryk-fixing-card.js` into your HA `config/www/` and register it
+   as a resource (see step 3 of the manual install). A repo is a single HACS category,
+   so the card cannot be auto-installed alongside the integration here.
 
 ## Installation (manual)
 
@@ -25,10 +36,6 @@ discharge / sell back (high buy-back price).
 3. Register the card as a Lovelace resource (Settings -> Dashboards -> ⋮ -> Resources):
    - URL `/local/pstryk-fixing-card.js`, type **JavaScript Module**.
 4. Restart Home Assistant.
-
-(For HACS distribution the integration and the card would live in two separate
-repositories - one per HACS category. This single repo is convenient for a manual /
-personal install.)
 
 ## Configuration
 
@@ -46,9 +53,12 @@ Per configured operator/tariff (a device named `Pstryk <OPERATOR> <TARIFF>`):
 
 | Entity | Description |
 |---|---|
-| `sensor...._current_price` | Current hour gross **buy** price (PLN/kWh). Carries `today` / `tomorrow` hour arrays, `thresholds` and `today_summary` as attributes. |
-| `sensor...._advice` | Current hour consumption recommendation - `use` / `neutral` / `limit` (enum). |
+| `sensor...._current_price` | Current hour gross **buy** price (PLN/kWh). Carries `now`, `today` / `tomorrow` hour arrays, `thresholds` and `today_summary` as attributes. |
+| `sensor...._advice` | Current hour consumption recommendation - `use` / `neutral` / `limit` (enum). Attributes carry the day's `use` / `neutral` / `limit` / `sell` hour counts. |
+| `sensor...._next_cheap_hour` | Timestamp of the next upcoming `use` hour (starts after now) - a ready automation trigger. Attributes: `hour`, `buy_gross_pln_per_kwh`. |
+| `sensor...._cheapest_hour_today` | Timestamp of today's cheapest hour, for scheduling deferrable loads. |
 | `sensor...._current_sell_price` | Current hour gross **sell** price (only when sell mode is on). |
+| `sensor...._next_sell_hour` | Timestamp of the next upcoming hour worth selling/discharging into (only when sell mode is on). |
 | `binary_sensor...._sell_now` | `on` when the current hour is worth discharging / selling (only when sell mode is on). |
 
 ## Lovelace card
@@ -60,7 +70,9 @@ title: Pstryk - wskazówki na dziś
 ```
 
 Renders the 24 hours coloured by advice (use / neutral / limit), a sell badge, and a
-highlight on the current hour. It reads the `today` attribute of the price sensor.
+highlight on the current hour, plus a header summarising now / next cheap / next sell.
+It reads the `today`, `now` and `today_summary` attributes of the price sensor and
+tracks the active Home Assistant light/dark theme.
 
 ## Automation examples
 

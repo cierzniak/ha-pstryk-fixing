@@ -3,10 +3,10 @@
   "name": "Pstryk Fixing",
   "codeowners": ["@cierzniak"],
   "config_flow": true,
-  "documentation": "https://github.com/cierzniak/pstryk-ha",
+  "documentation": "https://github.com/cierzniak/ha-pstryk-fixing",
   "integration_type": "service",
   "iot_class": "cloud_polling",
-  "issue_tracker": "https://github.com/cierzniak/pstryk-ha/issues",
+  "issue_tracker": "https://github.com/cierzniak/ha-pstryk-fixing/issues",
   "requirements": [],
   "version": "0.1.0"
 }
