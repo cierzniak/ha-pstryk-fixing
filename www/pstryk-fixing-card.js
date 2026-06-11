@@ -174,30 +174,35 @@ class PstrykFixingCard extends HTMLElement {
     this.innerHTML = `
       <ha-card header="${title}">
         <style>
-          .pf-strip { display:grid; grid-template-columns:repeat(auto-fill,minmax(2.4rem,1fr)); gap:3px; padding:0 16px 16px; }
-          .pf-cell { display:flex; flex-direction:column; align-items:center; border-radius:6px; padding:4px 2px; font-size:.72rem; border:2px solid transparent; }
-          .pf-hr { font-weight:600; font-variant-numeric:tabular-nums; }
-          .pf-px { opacity:.8; font-size:.64rem; }
-          .pf-use { background:#e6f4ea; color:#11432a; }
-          .pf-neutral { background:#eef0f2; color:#2b2f33; }
-          .pf-limit { background:#fbe9e7; color:#7a1f1a; }
-          .pf-sell { box-shadow:inset 0 -3px 0 #1455a3; }
-          .pf-now { border-color:#000; }
-          .pf-legend { display:flex; flex-wrap:wrap; gap:.6rem; padding:8px 16px 0; font-size:.74rem; }
-          .pf-sw { width:.8rem; height:.8rem; border-radius:3px; display:inline-block; vertical-align:middle; margin-right:.2rem; }
+          /* Colours come from Home Assistant theme variables so the card tracks
+             the active light/dark theme; the --rgb-* fallbacks keep it readable
+             if a theme omits one. Each advice class sets --pf/--pf-rgb, reused
+             for the cell tint, hour colour, legend swatch and header chips. */
+          .pf-strip { display:grid; grid-template-columns:repeat(auto-fill,minmax(2.8rem,1fr)); gap:4px; padding:0 16px 16px; }
+          .pf-cell { display:flex; flex-direction:column; align-items:center; border-radius:6px; padding:5px 2px; font-size:.82rem; border:2px solid transparent; background:rgba(var(--pf-rgb, 144,144,144), .15); color:var(--primary-text-color); }
+          .pf-hr { font-weight:700; font-size:.92rem; font-variant-numeric:tabular-nums; color:var(--pf, var(--primary-text-color)); }
+          .pf-px { font-size:.72rem; font-variant-numeric:tabular-nums; color:var(--secondary-text-color); }
+          .pf-use { --pf:var(--success-color, #43a047); --pf-rgb:var(--rgb-success-color, 67,160,71); }
+          .pf-neutral { --pf:var(--secondary-text-color, #9e9e9e); --pf-rgb:144,144,144; }
+          .pf-limit { --pf:var(--error-color, #e53935); --pf-rgb:var(--rgb-error-color, 229,57,53); }
+          .pf-sell { box-shadow:inset 0 -3px 0 var(--info-color, #2196f3); }
+          .pf-now { border-color:var(--primary-color, var(--primary-text-color)); }
+          .pf-legend { display:flex; flex-wrap:wrap; gap:.7rem; padding:8px 16px 0; font-size:.84rem; color:var(--primary-text-color); }
+          .pf-sw { width:.85rem; height:.85rem; border-radius:3px; display:inline-block; vertical-align:middle; margin-right:.25rem; background:var(--pf, #888); }
+          .pf-sellsw { background:var(--card-background-color, transparent); box-shadow:inset 0 -3px 0 var(--info-color, #2196f3); }
           .pf-head { display:flex; flex-wrap:wrap; gap:.5rem; padding:8px 16px 0; }
-          .pf-stat { display:flex; flex-direction:column; border-radius:8px; padding:6px 10px; min-width:5.5rem; }
-          .pf-stat-k { font-size:.62rem; text-transform:uppercase; letter-spacing:.04em; opacity:.7; }
-          .pf-stat-v { font-weight:600; font-variant-numeric:tabular-nums; font-size:.82rem; }
-          .pf-sellstat { background:#e7f0fb; color:#0d3b73; box-shadow:inset 0 -3px 0 #1455a3; }
-          .pf-counts { padding:6px 16px 0; font-size:.72rem; opacity:.75; }
+          .pf-stat { display:flex; flex-direction:column; border-radius:8px; padding:6px 10px; min-width:5.5rem; background:rgba(var(--pf-rgb, 144,144,144), .15); color:var(--primary-text-color); }
+          .pf-stat-k { font-size:.7rem; text-transform:uppercase; letter-spacing:.04em; color:var(--secondary-text-color); }
+          .pf-stat-v { font-weight:700; font-variant-numeric:tabular-nums; font-size:.98rem; }
+          .pf-sellstat { --pf:var(--info-color, #2196f3); --pf-rgb:var(--rgb-info-color, 33,150,243); box-shadow:inset 0 -3px 0 var(--info-color, #2196f3); }
+          .pf-counts { padding:6px 16px 0; font-size:.82rem; color:var(--secondary-text-color); }
         </style>
         ${header}
         <div class="pf-legend">
           <span><span class="pf-sw pf-use"></span>Używaj</span>
           <span><span class="pf-sw pf-neutral"></span>Neutralnie</span>
           <span><span class="pf-sw pf-limit"></span>Ogranicz</span>
-          <span><span class="pf-sw" style="box-shadow:inset 0 -3px 0 #1455a3;background:#fff;"></span>Sprzedaj</span>
+          <span><span class="pf-sw pf-sellsw"></span>Sprzedaj</span>
         </div>
         <div class="pf-strip">${cells}</div>
       </ha-card>`;
