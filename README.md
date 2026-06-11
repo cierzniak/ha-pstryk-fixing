@@ -24,18 +24,16 @@ discharge / sell back (high buy-back price).
 1. HACS -> Integrations -> ⋮ -> **Custom repositories**.
 2. Add `https://github.com/cierzniak/ha-pstryk-fixing` with category **Integration**.
 3. Install **Pstryk Fixing**, then restart Home Assistant.
-4. The Lovelace card ships in `www/`. HACS installs the integration, not the bundled
-   card - copy `www/pstryk-fixing-card.js` into your HA `config/www/` and register it
-   as a resource (see step 3 of the manual install). A repo is a single HACS category,
-   so the card cannot be auto-installed alongside the integration here.
+
+The Lovelace card (`custom:pstryk-fixing-card`) is bundled **inside** the integration
+and registered automatically on startup - one repo, no separate HACS plugin, no manual
+Lovelace resource step.
 
 ## Installation (manual)
 
-1. Copy `custom_components/pstryk_fixing/` into your HA `config/custom_components/`.
-2. Copy `www/pstryk-fixing-card.js` into your HA `config/www/`.
-3. Register the card as a Lovelace resource (Settings -> Dashboards -> ⋮ -> Resources):
-   - URL `/local/pstryk-fixing-card.js`, type **JavaScript Module**.
-4. Restart Home Assistant.
+1. Copy `custom_components/pstryk_fixing/` into your HA `config/custom_components/`
+   (the Lovelace card travels inside it).
+2. Restart Home Assistant.
 
 ## Configuration
 
@@ -62,6 +60,9 @@ Per configured operator/tariff (a device named `Pstryk <OPERATOR> <TARIFF>`):
 | `binary_sensor...._sell_now` | `on` when the current hour is worth discharging / selling (only when sell mode is on). |
 
 ## Lovelace card
+
+The card is registered by the integration, so once installed just add it to a
+dashboard (no resource setup):
 
 ```yaml
 type: custom:pstryk-fixing-card
