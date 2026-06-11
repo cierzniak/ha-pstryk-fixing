@@ -178,9 +178,9 @@ class PstrykFixingCard extends HTMLElement {
              the active light/dark theme; the --rgb-* fallbacks keep it readable
              if a theme omits one. Each advice class sets --pf/--pf-rgb, reused
              for the cell tint, hour colour, legend swatch and header chips. */
-          /* Mobile: 6 columns × 4h. Desktop (>=600px): 4 columns × 6h. */
-          .pf-strip { display:grid; grid-template-columns:repeat(6,1fr); gap:4px; padding:0 16px 16px; }
-          @media (min-width:600px) { .pf-strip { grid-template-columns:repeat(4,1fr); } }
+          /* Mobile: 4 columns × 6h. Desktop (>=600px): 6 columns × 4h. */
+          .pf-strip { display:grid; grid-template-columns:repeat(4,1fr); gap:4px; padding:0 16px 16px; }
+          @media (min-width:600px) { .pf-strip { grid-template-columns:repeat(6,1fr); } }
           .pf-cell { display:flex; flex-direction:column; align-items:center; border-radius:6px; padding:5px 2px; font-size:.82rem; border:2px solid transparent; background:rgba(var(--pf-rgb, 144,144,144), .15); color:var(--primary-text-color); }
           .pf-hr { font-weight:700; font-size:.92rem; font-variant-numeric:tabular-nums; color:var(--pf, var(--primary-text-color)); }
           .pf-px { font-size:.72rem; font-variant-numeric:tabular-nums; color:var(--secondary-text-color); }
