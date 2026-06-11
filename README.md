@@ -1,68 +1,68 @@
 # Pstryk Fixing - Home Assistant
 
-Home Assistant integration **and** a Lovelace card for the
-[Pstryk Fixing](https://pstryk.gdansk.best) hourly electricity prices, exposing a
-ready-to-automate **use / limit / sell** recommendation per hour.
+Integracja Home Assistant **wraz z** kartą Lovelace dla godzinowych cen prądu
+[Pstryk Fixing](https://pstryk.gdansk.best). Wystawia gotową pod automatyzacje
+rekomendację na każdą godzinę: **używaj / ogranicz / sprzedaj**.
 
-It consumes the public Pstryk Fixing API (`GET /api/v1/outlook/{operator}/{tariff}`)
-and turns it into sensors you can drive automations from - when to run appliances
-or charge a battery (cheap hours), when to hold back (expensive hours), and when to
-discharge / sell back (high buy-back price).
+Korzysta z publicznego API Pstryk Fixing (`GET /api/v1/outlook/{operator}/{tariff}`)
+i zamienia je na sensory, na których oprzesz automatyzacje - kiedy włączyć urządzenia
+albo ładować magazyn (tanie godziny), kiedy ograniczyć pobór (drogie godziny), a kiedy
+rozładować / sprzedać do sieci (wysoka cena odkupu).
 
-> Status: `0.1.0`, early release. Verified against a live Home Assistant instance
-> (the integration sets up and its entities populate from the API). Review before
-> relying on it for critical automations. Requires a Pstryk Fixing API that exposes
-> `GET /api/v1/outlook` (live on `pstryk.gdansk.best`).
+> Status: `0.1.0`, wczesne wydanie. Zweryfikowane na żywej instancji Home Assistant
+> (integracja się konfiguruje, encje wypełniają się z API). Przejrzyj zanim oprzesz
+> na tym krytyczne automatyzacje. Wymaga API Pstryk Fixing z endpointem
+> `GET /api/v1/outlook` (działa na `pstryk.gdansk.best`).
 
-## Requirements
+## Wymagania
 
-- Home Assistant `2024.8` or newer.
-- Network access to `https://pstryk.gdansk.best` (the public API; no account, no key).
+- Home Assistant `2024.8` lub nowszy.
+- Dostęp sieciowy do `https://pstryk.gdansk.best` (publiczne API; bez konta, bez klucza).
 
-## Installation (HACS)
+## Instalacja (HACS)
 
-1. HACS -> Integrations -> ⋮ -> **Custom repositories**.
-2. Add `https://github.com/cierzniak/ha-pstryk-fixing` with category **Integration**.
-3. Install **Pstryk Fixing**, then restart Home Assistant.
+1. HACS -> Integracje -> ⋮ -> **Własne repozytoria** (Custom repositories).
+2. Dodaj `https://github.com/cierzniak/ha-pstryk-fixing` z kategorią **Integration**.
+3. Zainstaluj **Pstryk Fixing**, potem zrestartuj Home Assistant.
 
-The Lovelace card (`custom:pstryk-fixing-card`) is bundled **inside** the integration
-and registered automatically on startup - one repo, no separate HACS plugin, no manual
-Lovelace resource step.
+Karta Lovelace (`custom:pstryk-fixing-card`) jest spakowana **wewnątrz** integracji i
+rejestruje się automatycznie przy starcie - jedno repo, bez osobnego pluginu HACS, bez
+ręcznego dodawania zasobu (resource) Lovelace.
 
-## Installation (manual)
+## Instalacja (ręczna)
 
-1. Copy `custom_components/pstryk_fixing/` into your HA `config/custom_components/`
-   (the Lovelace card travels inside it).
-2. Restart Home Assistant.
+1. Skopiuj `custom_components/pstryk_fixing/` do `config/custom_components/` w swoim HA
+   (karta Lovelace jedzie razem w środku).
+2. Zrestartuj Home Assistant.
 
-## Configuration
+## Konfiguracja
 
-Settings -> Devices & Services -> **Add Integration** -> *Pstryk Fixing*:
+Ustawienia -> Urządzenia i usługi -> **Dodaj integrację** -> *Pstryk Fixing*:
 
-1. Pick your **distribution operator** (fetched from the API).
-2. Pick your **tariff** and whether to fetch **sell (buy-back) prices**.
+1. Wybierz swojego **operatora dystrybucji** (pobierany z API).
+2. Wybierz **taryfę** oraz czy pobierać **ceny sprzedaży (odkupu)**.
 
-The API host is fixed (`pstryk.gdansk.best`) - there is nothing else to configure.
-Add the integration multiple times for several operator/tariff combinations.
+Adres API jest stały (`pstryk.gdansk.best`) - nie ma nic więcej do ustawiania. Możesz
+dodać integrację wiele razy, dla kilku kombinacji operator/taryfa.
 
-## Entities
+## Encje
 
-Per configured operator/tariff (a device named `Pstryk <OPERATOR> <TARIFF>`):
+Na każdą skonfigurowaną parę operator/taryfa (urządzenie `Pstryk <OPERATOR> <TARYFA>`):
 
-| Entity | Description |
+| Encja | Opis |
 |---|---|
-| `sensor...._current_price` | Current hour gross **buy** price (PLN/kWh). Carries `now`, `today` / `tomorrow` hour arrays, `thresholds` and `today_summary` as attributes. |
-| `sensor...._advice` | Current hour consumption recommendation - `use` / `neutral` / `limit` (enum). Attributes carry the day's `use` / `neutral` / `limit` / `sell` hour counts. |
-| `sensor...._next_cheap_hour` | Timestamp of the next upcoming `use` hour (starts after now) - a ready automation trigger. Attributes: `hour`, `buy_gross_pln_per_kwh`. |
-| `sensor...._cheapest_hour_today` | Timestamp of today's cheapest hour, for scheduling deferrable loads. |
-| `sensor...._current_sell_price` | Current hour gross **sell** price (only when sell mode is on). |
-| `sensor...._next_sell_hour` | Timestamp of the next upcoming hour worth selling/discharging into (only when sell mode is on). |
-| `binary_sensor...._sell_now` | `on` when the current hour is worth discharging / selling (only when sell mode is on). |
+| `sensor...._current_price` | Cena **kupna** brutto bieżącej godziny (PLN/kWh). W atrybutach niesie `now`, tablice godzin `today` / `tomorrow`, `thresholds` oraz `today_summary`. |
+| `sensor...._advice` | Rekomendacja zużycia na bieżącą godzinę - `use` / `neutral` / `limit` (enum). W atrybutach liczniki godzin dnia: `use` / `neutral` / `limit` / `sell`. |
+| `sensor...._next_cheap_hour` | Znacznik czasu najbliższej nadchodzącej godziny `use` (zaczynającej się po teraz) - gotowy wyzwalacz automatyzacji. Atrybuty: `hour`, `buy_gross_pln_per_kwh`. |
+| `sensor...._cheapest_hour_today` | Znacznik czasu najtańszej godziny dziś - do planowania odraczalnych odbiorników. |
+| `sensor...._current_sell_price` | Cena **sprzedaży** brutto bieżącej godziny (tylko gdy tryb sprzedaży włączony). |
+| `sensor...._next_sell_hour` | Znacznik czasu najbliższej nadchodzącej godziny wartej sprzedaży/rozładowania (tylko gdy tryb sprzedaży włączony). |
+| `binary_sensor...._sell_now` | `on`, gdy bieżąca godzina jest warta rozładowania / sprzedaży (tylko gdy tryb sprzedaży włączony). |
 
-## Lovelace card
+## Karta Lovelace
 
-The card is registered by the integration, so once installed just add it to a
-dashboard (no resource setup):
+Karta jest rejestrowana przez integrację, więc po instalacji wystarczy dodać ją na
+dashboard (bez konfiguracji zasobu):
 
 ```yaml
 type: custom:pstryk-fixing-card
@@ -70,18 +70,18 @@ entity: sensor.pstryk_energa_g11f_current_price
 title: Pstryk - wskazówki na dziś
 ```
 
-Renders the 24 hours coloured by advice (use / neutral / limit), a sell badge, and a
-highlight on the current hour, plus a header summarising now / next cheap / next sell.
-It reads the `today`, `now` and `today_summary` attributes of the price sensor and
-tracks the active Home Assistant light/dark theme.
+Rysuje 24 godziny pokolorowane wg rekomendacji (używaj / neutralnie / ogranicz), badge
+sprzedaży i wyróżnienie bieżącej godziny, plus nagłówek z podsumowaniem: teraz / następna
+tania / następna sprzedaż. Czyta atrybuty `today`, `now` i `today_summary` sensora ceny
+i podąża za aktywnym motywem Home Assistant (jasny/ciemny).
 
-## Automation examples
+## Przykłady automatyzacji
 
-Run a socket during cheap hours:
+Włącz gniazdko w tanich godzinach:
 
 ```yaml
 automation:
-  - alias: Boiler on when energy is cheap
+  - alias: Bojler gdy prąd tani
     trigger:
       - platform: state
         entity_id: sensor.pstryk_energa_g11f_advice
@@ -91,11 +91,11 @@ automation:
         target: { entity_id: switch.boiler }
 ```
 
-Discharge / sell from a battery when buy-back is high:
+Rozładuj / sprzedaj z magazynu, gdy odkup się opłaca:
 
 ```yaml
 automation:
-  - alias: Battery discharge when selling pays
+  - alias: Rozładowanie magazynu gdy sprzedaż się opłaca
     trigger:
       - platform: state
         entity_id: binary_sensor.pstryk_energa_g11f_sell_now
@@ -106,13 +106,13 @@ automation:
         data: { option: "Export" }
 ```
 
-## How it fits together
+## Jak to się składa w całość
 
-This is cycle 2 of the Pstryk Fixing Home Assistant support. Cycle 1 (the backend)
-computes the per-hour advice server-side and exposes it via `/api/v1/outlook`; this
-repo is a thin consumer. The classification thresholds are tuned centrally in the
-Pstryk admin panel, so every consumer (web + HA) stays in sync.
+To cykl 2 wsparcia Pstryk Fixing dla Home Assistant. Cykl 1 (backend) liczy
+rekomendację per godzina po stronie serwera i wystawia ją przez `/api/v1/outlook`;
+to repo jest cienkim konsumentem. Progi klasyfikacji stroi się centralnie w panelu
+admina Pstryk, więc każdy konsument (web + HA) trzyma się tych samych wartości.
 
-## License
+## Licencja
 
-MIT - see [LICENSE](LICENSE).
+MIT - zobacz [LICENSE](LICENSE).
