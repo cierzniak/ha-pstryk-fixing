@@ -21,6 +21,10 @@ rozładować / sprzedać do sieci (wysoka cena odkupu).
 
 ## Instalacja (HACS)
 
+[![Otwórz swoją instancję Home Assistant i dodaj to repozytorium do HACS.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=cierzniak&repository=ha-pstryk-fixing&category=integration)
+
+Kliknij badge powyżej, żeby dodać repozytorium do HACS jednym kliknięciem, albo ręcznie:
+
 1. HACS -> Integracje -> ⋮ -> **Własne repozytoria** (Custom repositories).
 2. Dodaj `https://github.com/cierzniak/ha-pstryk-fixing` z kategorią **Integration**.
 3. Zainstaluj **Pstryk Fixing**, potem zrestartuj Home Assistant.
