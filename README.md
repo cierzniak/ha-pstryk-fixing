@@ -106,6 +106,35 @@ automation:
         data: { option: "Export" }
 ```
 
+Domknij okno - wyłącz bojler, gdy godzina przestaje być tania:
+
+```yaml
+automation:
+  - alias: Bojler wyłącz gdy prąd przestaje być tani
+    trigger:
+      - platform: state
+        entity_id: sensor.pstryk_energa_g11f_advice
+        from: "use"
+    action:
+      - action: switch.turn_off
+        target: { entity_id: switch.boiler }
+```
+
+I zakończ sprzedaż, gdy odkup przestaje się opłacać:
+
+```yaml
+automation:
+  - alias: Magazyn wróć do trybu auto gdy sprzedaż przestaje się opłacać
+    trigger:
+      - platform: state
+        entity_id: binary_sensor.pstryk_energa_g11f_sell_now
+        to: "off"
+    action:
+      - action: select.select_option
+        target: { entity_id: select.battery_mode }
+        data: { option: "Auto" }
+```
+
 ## Jak to się składa w całość
 
 To cykl 2 wsparcia Pstryk Fixing dla Home Assistant. Cykl 1 (backend) liczy
