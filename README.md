@@ -51,13 +51,13 @@ Na każdą skonfigurowaną parę operator/taryfa (urządzenie `Pstryk <OPERATOR>
 
 | Encja | Opis |
 |---|---|
-| `sensor...._current_price` | Cena **kupna** brutto bieżącej godziny (PLN/kWh). W atrybutach niesie `now`, tablice godzin `today` / `tomorrow`, `thresholds` oraz `today_summary`. |
-| `sensor...._advice` | Rekomendacja zużycia na bieżącą godzinę - `use` / `neutral` / `limit` (enum). W atrybutach liczniki godzin dnia: `use` / `neutral` / `limit` / `sell`. |
-| `sensor...._next_cheap_hour` | Znacznik czasu najbliższej nadchodzącej godziny `use` (zaczynającej się po teraz) - gotowy wyzwalacz automatyzacji. Atrybuty: `hour`, `buy_gross_pln_per_kwh`. |
-| `sensor...._cheapest_hour_today` | Znacznik czasu najtańszej godziny dziś - do planowania odraczalnych odbiorników. |
-| `sensor...._current_sell_price` | Cena **sprzedaży** brutto bieżącej godziny (tylko gdy tryb sprzedaży włączony). |
-| `sensor...._next_sell_hour` | Znacznik czasu najbliższej nadchodzącej godziny wartej sprzedaży/rozładowania (tylko gdy tryb sprzedaży włączony). |
-| `binary_sensor...._sell_now` | `on`, gdy bieżąca godzina jest warta rozładowania / sprzedaży (tylko gdy tryb sprzedaży włączony). |
+| `sensor.*_current_price` | Cena **kupna** brutto bieżącej godziny (PLN/kWh). W atrybutach niesie `now`, tablice godzin `today` / `tomorrow`, `thresholds` oraz `today_summary`. |
+| `sensor.*_advice` | Rekomendacja zużycia na bieżącą godzinę - `use` / `neutral` / `limit` (enum). W atrybutach liczniki godzin dnia: `use` / `neutral` / `limit` / `sell`. |
+| `sensor.*_next_cheap_hour` | Znacznik czasu najbliższej nadchodzącej godziny `use` (zaczynającej się po teraz) - gotowy wyzwalacz automatyzacji. Atrybuty: `hour`, `buy_gross_pln_per_kwh`. |
+| `sensor.*_cheapest_hour_today` | Znacznik czasu najtańszej godziny dziś - do planowania odraczalnych odbiorników. |
+| `sensor.*_current_sell_price` | Cena **sprzedaży** brutto bieżącej godziny (tylko gdy tryb sprzedaży włączony). |
+| `sensor.*_next_sell_hour` | Znacznik czasu najbliższej nadchodzącej godziny wartej sprzedaży/rozładowania (tylko gdy tryb sprzedaży włączony). |
+| `binary_sensor.*_sell_now` | `on`, gdy bieżąca godzina jest warta rozładowania / sprzedaży (tylko gdy tryb sprzedaży włączony). |
 
 ## Karta Lovelace
 
