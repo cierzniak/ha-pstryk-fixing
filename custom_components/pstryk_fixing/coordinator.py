@@ -15,6 +15,7 @@ from .const import (
     CONF_INCLUDE_SELL,
     CONF_OPERATOR,
     CONF_TARIFF,
+    DEFAULT_BASE_URL,
     DOMAIN,
     UPDATE_INTERVAL,
 )
@@ -27,18 +28,34 @@ class PstrykOutlookCoordinator(DataUpdateCoordinator[dict[str, Any]]):
     """Fetches the outlook once per interval and exposes the current hour."""
 
     def __init__(
-        self, hass: HomeAssistant, entry: ConfigEntry, client: PstrykApiClient
+        self,
+        hass: HomeAssistant,
+        entry: ConfigEntry,
+        client: PstrykApiClient,
+        integration_version: str | None = None,
     ) -> None:
         self._client = client
         self.operator: str = entry.data[CONF_OPERATOR]
         self.tariff: str = entry.data[CONF_TARIFF]
         self.include_sell: bool = entry.data.get(CONF_INCLUDE_SELL, True)
+        self.integration_version = integration_version
         super().__init__(
             hass,
             logger=_LOGGER,
             name=f"{DOMAIN} {self.operator}/{self.tariff}",
             update_interval=UPDATE_INTERVAL,
         )
+
+    def device_info(self) -> dict[str, Any]:
+        """Shared device descriptor for every entity of this config entry."""
+        return {
+            "identifiers": {(DOMAIN, f"{self.operator}_{self.tariff}")},
+            "name": f"Pstryk {self.operator.upper()} {self.tariff.upper()}",
+            "manufacturer": "Pstryk Fixing",
+            "model": "Godzinowy fixing (RDN)",
+            "sw_version": self.integration_version,
+            "configuration_url": DEFAULT_BASE_URL,
+        }
 
     async def _async_update_data(self) -> dict[str, Any]:
         try:

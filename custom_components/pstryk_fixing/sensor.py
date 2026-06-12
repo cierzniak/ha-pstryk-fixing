@@ -15,7 +15,7 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from . import PstrykConfigEntry
-from .const import ADVICE_OPTIONS, DOMAIN
+from .const import ADVICE_OPTIONS
 from .coordinator import PstrykOutlookCoordinator
 from .outlook import parse_iso
 
@@ -52,14 +52,8 @@ class _PstrykSensorBase(CoordinatorEntity[PstrykOutlookCoordinator], SensorEntit
     def __init__(self, coordinator: PstrykOutlookCoordinator, key: str) -> None:
         super().__init__(coordinator)
         device = f"{coordinator.operator}_{coordinator.tariff}"
-        name = f"Pstryk {coordinator.operator.upper()} {coordinator.tariff.upper()}"
         self._attr_unique_id = f"{device}_{key}"
-        self._attr_device_info = {
-            "identifiers": {(DOMAIN, device)},
-            "name": name,
-            "manufacturer": "Pstryk Fixing",
-            "entry_type": "service",
-        }
+        self._attr_device_info = coordinator.device_info()
 
 
 class PstrykCurrentPriceSensor(_PstrykSensorBase):

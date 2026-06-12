@@ -8,7 +8,6 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from . import PstrykConfigEntry
-from .const import DOMAIN
 from .coordinator import PstrykOutlookCoordinator
 
 
@@ -33,14 +32,8 @@ class PstrykSellNowBinarySensor(
     def __init__(self, coordinator: PstrykOutlookCoordinator) -> None:
         super().__init__(coordinator)
         device = f"{coordinator.operator}_{coordinator.tariff}"
-        name = f"Pstryk {coordinator.operator.upper()} {coordinator.tariff.upper()}"
         self._attr_unique_id = f"{device}_sell_now"
-        self._attr_device_info = {
-            "identifiers": {(DOMAIN, device)},
-            "name": name,
-            "manufacturer": "Pstryk Fixing",
-            "entry_type": "service",
-        }
+        self._attr_device_info = coordinator.device_info()
 
     @property
     def is_on(self) -> bool | None:
