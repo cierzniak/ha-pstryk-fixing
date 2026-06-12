@@ -9,16 +9,20 @@ from homeassistant.components.http import StaticPathConfig
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.typing import ConfigType
 
 from .api import PstrykApiClient
-from .const import DEFAULT_BASE_URL
+from .const import DEFAULT_BASE_URL, DOMAIN
 from .coordinator import PstrykOutlookCoordinator
 
 PLATFORMS: list[Platform] = [Platform.SENSOR, Platform.BINARY_SENSOR]
 
 type PstrykConfigEntry = ConfigEntry[PstrykOutlookCoordinator]
+
+# This integration is configured only through config entries (no YAML).
+CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
 
 # The bundled Lovelace card is served by the integration itself and registered as
 # a frontend module, so installing the integration (manually or via HACS) makes
