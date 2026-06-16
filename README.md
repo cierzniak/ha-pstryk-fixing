@@ -79,6 +79,11 @@ sprzedaży i wyróżnienie bieżącej godziny, plus nagłówek z podsumowaniem: 
 tania / następna sprzedaż. Czyta atrybuty `today`, `now` i `today_summary` sensora ceny
 i podąża za aktywnym motywem Home Assistant (jasny/ciemny).
 
+Jeśli zaraz po instalacji widzisz `Custom element doesn't exist: pstryk-fixing-card`,
+zrestartuj Home Assistant, a następnie odśwież frontend (twardy reload, a w razie potrzeby
+wyczyść dane strony / Service Worker w przeglądarce lub cache aplikacji mobilnej) -- to
+jednorazowy efekt cache PWA, nie błąd integracji.
+
 ## Przykłady automatyzacji
 
 Włącz gniazdko w tanich godzinach:

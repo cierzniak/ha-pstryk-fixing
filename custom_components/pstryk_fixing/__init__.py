@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from pathlib import Path
 
 from homeassistant.components import frontend
@@ -18,6 +19,8 @@ from .api import PstrykApiClient
 from .const import DEFAULT_BASE_URL, DOMAIN
 from .coordinator import PstrykOutlookCoordinator
 
+_LOGGER = logging.getLogger(__name__)
+
 PLATFORMS: list[Platform] = [Platform.SENSOR, Platform.BINARY_SENSOR]
 
 type PstrykConfigEntry = ConfigEntry[PstrykOutlookCoordinator]
@@ -25,9 +28,13 @@ type PstrykConfigEntry = ConfigEntry[PstrykOutlookCoordinator]
 # This integration is configured only through config entries (no YAML).
 CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
 
-# The bundled Lovelace card is served by the integration itself and registered as
-# a frontend module, so installing the integration (manually or via HACS) makes
-# custom:pstryk-fixing-card available without a manual resource step.
+# The integration serves the bundled card file itself (static path) and then makes
+# custom:pstryk-fixing-card available without any manual step. In storage mode it
+# registers the file as a Lovelace resource -- the same mechanism HACS cards use --
+# so the card loads as part of the dashboard and is reliably defined before cards
+# render, including after a restart. add_extra_js_url loads outside the Lovelace
+# resource pipeline and races the dashboard on cold starts ("Custom element doesn't
+# exist"), so it is only the fallback for YAML mode, where resources are read-only.
 CARD_URL = "/pstryk_fixing/pstryk-fixing-card.js"
 CARD_PATH = Path(__file__).parent / "frontend" / "pstryk-fixing-card.js"
 
@@ -37,8 +44,45 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
     await hass.http.async_register_static_paths(
         [StaticPathConfig(CARD_URL, str(CARD_PATH), False)]
     )
-    frontend.add_extra_js_url(hass, CARD_URL)
+    integration = await async_get_integration(hass, DOMAIN)
+    await _async_register_card(hass, str(integration.version))
     return True
+
+
+async def _async_register_card(hass: HomeAssistant, version: str) -> None:
+    """Expose custom:pstryk-fixing-card so it is defined before dashboards render.
+
+    Storage mode: register (or update) the card as a Lovelace resource, keyed on
+    the version so updates bust the browser cache. YAML mode (read-only resources)
+    or no dashboards component: fall back to a frontend extra module.
+    """
+    card_url = f"{CARD_URL}?v={version}"
+    lovelace = hass.data.get("lovelace")
+    resources = getattr(lovelace, "resources", None)
+
+    if getattr(lovelace, "resource_mode", None) != "storage" or resources is None:
+        frontend.add_extra_js_url(hass, card_url)
+        return
+
+    try:
+        if not resources.loaded:
+            await resources.async_get_info()
+        for item in resources.async_items():
+            if str(item.get("url", "")).split("?", 1)[0] != CARD_URL:
+                continue
+            if item.get("url") != card_url:
+                await resources.async_update_item(
+                    item["id"], {"res_type": "module", "url": card_url}
+                )
+            return
+        await resources.async_create_item({"res_type": "module", "url": card_url})
+    except Exception:  # never break setup over a cosmetic card resource
+        _LOGGER.warning(
+            "Could not register the Lovelace resource for the card; "
+            "falling back to a frontend module",
+            exc_info=True,
+        )
+        frontend.add_extra_js_url(hass, card_url)
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: PstrykConfigEntry) -> bool:

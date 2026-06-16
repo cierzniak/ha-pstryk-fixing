@@ -17,6 +17,8 @@
  *   title: Pstryk - wskazówki na dziś
  */
 
+const CARD_VERSION = "0.1.2";
+
 const LABELS = { use: "Używaj", neutral: "Neutralnie", limit: "Ogranicz" };
 
 const ESCAPE = { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" };
@@ -210,11 +212,22 @@ class PstrykFixingCard extends HTMLElement {
   }
 }
 
-customElements.define("pstryk-fixing-card", PstrykFixingCard);
+// Guard against a double load (e.g. a stray manual resource alongside the one the
+// integration registers): defining the same element twice throws and would abort
+// the second module, leaving the card broken.
+if (!customElements.get("pstryk-fixing-card")) {
+  customElements.define("pstryk-fixing-card", PstrykFixingCard);
 
-window.customCards = window.customCards || [];
-window.customCards.push({
-  type: "pstryk-fixing-card",
-  name: "Pstryk Fixing Card",
-  description: "Godzinowe wskazówki use / limit / sell z Pstryk Fixing.",
-});
+  console.info(
+    `%c PSTRYK-FIXING-CARD %c v${CARD_VERSION} `,
+    "color:#fff;background:#0a8f5b;font-weight:600;padding:2px 6px;border-radius:3px 0 0 3px",
+    "color:#0a8f5b;background:#04231a;font-weight:600;padding:2px 6px;border-radius:0 3px 3px 0",
+  );
+
+  window.customCards = window.customCards || [];
+  window.customCards.push({
+    type: "pstryk-fixing-card",
+    name: "Pstryk Fixing Card",
+    description: "Godzinowe wskazówki use / limit / sell z Pstryk Fixing.",
+  });
+}
