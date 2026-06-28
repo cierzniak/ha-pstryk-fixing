@@ -1,0 +1,52 @@
+blueprint:
+  name: Pstryk - uruchom odbiornik w zaplanowanych godzinach
+  description: >
+    Wlacza i wylacza urzadzenie wedlug sygnalu "uruchom teraz" (run_now)
+    wystawianego przez helper odbiornika Pstryk Fixing. Wskaz sygnal run_now
+    odbiornika oraz akcje startu i stopu (np. wlaczenie/wylaczenie ladowarki).
+  domain: automation
+  source_url: https://github.com/pcierzniak/pstryk-ha/blob/main/custom_components/pstryk_fixing/blueprints/automation/pstryk_fixing/run_load.yaml
+  input:
+    run_now_entity:
+      name: Sygnal "uruchom teraz"
+      description: Binary sensor run_now danego odbiornika.
+      selector:
+        entity:
+          filter:
+            - domain: binary_sensor
+              integration: pstryk_fixing
+    start_action:
+      name: Akcja startu
+      description: Co zrobic, gdy odbiornik ma ruszyc (np. wlacz ladowarke).
+      default: []
+      selector:
+        action: {}
+    stop_action:
+      name: Akcja stopu
+      description: Co zrobic, gdy odbiornik ma sie zatrzymac (np. wylacz ladowarke).
+      default: []
+      selector:
+        action: {}
+
+mode: single
+
+triggers:
+  - trigger: state
+    entity_id: !input run_now_entity
+    to: "on"
+    id: start
+  - trigger: state
+    entity_id: !input run_now_entity
+    to: "off"
+    id: stop
+
+actions:
+  - choose:
+      - conditions:
+          - condition: trigger
+            id: start
+        sequence: !input start_action
+      - conditions:
+          - condition: trigger
+            id: stop
+        sequence: !input stop_action

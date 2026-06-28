@@ -17,7 +17,7 @@
  *   title: Pstryk - wskazówki na dziś
  */
 
-const CARD_VERSION = "0.1.2";
+const CARD_VERSION = "0.2.0";
 
 const LABELS = { use: "Używaj", neutral: "Neutralnie", limit: "Ogranicz" };
 
@@ -229,5 +229,337 @@ if (!customElements.get("pstryk-fixing-card")) {
     type: "pstryk-fixing-card",
     name: "Pstryk Fixing Card",
     description: "Godzinowe wskazówki use / limit / sell z Pstryk Fixing.",
+  });
+}
+
+/**
+ * Pstryk Fixing scheduler card.
+ *
+ * Interactive companion that drives one "load" (EV charger, boiler, ...): pick a
+ * mode and its parameters, toggle the schedule, and see the planned hours
+ * highlighted on the price grid. It resolves the load's helper entities from the
+ * device registry (config `entity:` = any entity of the load, or `device:` = the
+ * load device) and reads the parent tariff's "current price" sensor for the grid.
+ *
+ * Usage (Lovelace YAML):
+ *   type: custom:pstryk-fixing-scheduler-card
+ *   entity: sensor.pstryk_ladowarka_planned_start   # any entity of the load
+ */
+
+const SCHED_MODES = {
+  cheapest_window: "Najtańsze okno",
+  fixed: "Sztywny start",
+  price_below: "Poniżej progu ceny",
+  advice_use: "Godziny zalecane",
+};
+
+const UNAVAIL = ["unknown", "unavailable", ""];
+
+class PstrykFixingSchedulerCard extends HTMLElement {
+  setConfig(config) {
+    if (!config || (!config.entity && !config.device)) {
+      throw new Error(
+        "Podaj 'entity' (dowolna encja odbiornika) albo 'device' (urządzenie odbiornika).",
+      );
+    }
+    this._config = config;
+  }
+
+  set hass(hass) {
+    this._hass = hass;
+    // Avoid clobbering a field the user is actively editing.
+    const a = document.activeElement;
+    if (this.contains(a) && /INPUT|SELECT/.test(a.tagName)) return;
+    this._render();
+  }
+
+  getCardSize() {
+    return 5;
+  }
+
+  static getStubConfig() {
+    return { entity: "" };
+  }
+
+  _resolve(hass) {
+    const cfg = this._config;
+    let deviceId = cfg.device;
+    if (!deviceId && cfg.entity && hass.entities && hass.entities[cfg.entity]) {
+      deviceId = hass.entities[cfg.entity].device_id;
+    }
+    const ents = hass.entities ? Object.values(hass.entities) : [];
+    const onDevice = deviceId
+      ? ents.filter((e) => e.device_id === deviceId)
+      : [];
+    const find = (domain, suffix) => {
+      const hit = onDevice.find(
+        (e) =>
+          e.entity_id.startsWith(`${domain}.`) &&
+          e.entity_id.endsWith(suffix),
+      );
+      return hit ? hit.entity_id : null;
+    };
+    return {
+      deviceId,
+      schedule: cfg.schedule_entity || find("switch", "_schedule"),
+      mode: cfg.mode_entity || find("select", "_mode"),
+      ready_by: find("time", "_ready_by"),
+      start_at: find("time", "_start_at"),
+      stop_at: find("time", "_stop_at"),
+      duration: find("number", "_duration"),
+      price_ceiling: find("number", "_price_ceiling"),
+      run_now: find("binary_sensor", "_run_now"),
+      planned_start: cfg.planned_entity || find("sensor", "_planned_start"),
+      price: cfg.price_entity || this._findPrice(hass, deviceId),
+    };
+  }
+
+  _findPrice(hass, deviceId) {
+    const ents = hass.entities ? Object.values(hass.entities) : [];
+    const dev = hass.devices && deviceId ? hass.devices[deviceId] : null;
+    const parentId = dev && dev.via_device_id;
+    if (parentId) {
+      const hit = ents.find(
+        (e) =>
+          e.device_id === parentId &&
+          e.entity_id.endsWith("_current_price"),
+      );
+      if (hit) return hit.entity_id;
+    }
+    for (const id of Object.keys(hass.states)) {
+      if (!id.startsWith("sensor.")) continue;
+      const att = hass.states[id].attributes;
+      if (att && Array.isArray(att.today) && att.thresholds) return id;
+    }
+    return null;
+  }
+
+  _state(entity) {
+    return entity ? this._hass.states[entity] : null;
+  }
+
+  _timeVal(entity) {
+    const s = this._state(entity);
+    return s && !UNAVAIL.includes(s.state) ? s.state.slice(0, 5) : "";
+  }
+
+  _numVal(entity) {
+    const s = this._state(entity);
+    return s && Number.isFinite(Number(s.state)) ? s.state : "";
+  }
+
+  _fmtPlanned(iso) {
+    const t = Date.parse(iso);
+    if (Number.isNaN(t)) return "-";
+    return new Date(t).toLocaleString([], {
+      weekday: "short",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  }
+
+  _timeCtl(label, entity) {
+    if (!entity) return "";
+    return `<label class="pf-ctl"><span>${esc(label)}</span>
+      <input class="pf-input" type="time" data-entity="${esc(entity)}" data-kind="time" value="${esc(this._timeVal(entity))}"></label>`;
+  }
+
+  _numCtl(label, entity, step, min, max, unit) {
+    if (!entity) return "";
+    return `<label class="pf-ctl"><span>${esc(label)}</span>
+      <input class="pf-input" type="number" step="${esc(step)}" min="${esc(min)}" max="${esc(max)}" data-entity="${esc(entity)}" data-kind="number" value="${esc(this._numVal(entity))}"><small>${esc(unit || "")}</small></label>`;
+  }
+
+  _controls(mode, r) {
+    if (mode === "cheapest_window") {
+      return (
+        this._timeCtl("Gotowe do", r.ready_by) +
+        this._numCtl("Czas", r.duration, 1, 1, 12, "h") +
+        this._timeCtl("Stop (opc.)", r.stop_at)
+      );
+    }
+    if (mode === "fixed") {
+      return this._timeCtl("Start o", r.start_at) + this._timeCtl("Stop o", r.stop_at);
+    }
+    if (mode === "price_below") {
+      return (
+        this._numCtl("Próg", r.price_ceiling, 0.05, 0, 5, "zł/kWh") +
+        this._timeCtl("Stop (opc.)", r.stop_at)
+      );
+    }
+    return this._timeCtl("Stop (opc.)", r.stop_at);
+  }
+
+  _grid(r, planned) {
+    const priceObj = this._state(r.price);
+    const today =
+      priceObj && Array.isArray(priceObj.attributes.today)
+        ? priceObj.attributes.today
+        : [];
+    const tomorrow =
+      priceObj && Array.isArray(priceObj.attributes.tomorrow)
+        ? priceObj.attributes.tomorrow
+        : [];
+    const allHours = today.concat(tomorrow);
+    if (allHours.length === 0) {
+      return `<div class="pf-counts">Czeka na ceny fixingu...</div>`;
+    }
+    const sel = new Set(
+      (planned && Array.isArray(planned.attributes.selected_hours)
+        ? planned.attributes.selected_hours
+        : []
+      )
+        .map((s) => Date.parse(s))
+        .filter((n) => !Number.isNaN(n)),
+    );
+    const now = Date.now();
+    const cells = allHours
+      .map((h) => {
+        const advice = LABELS[h.consumption] ? h.consumption : "neutral";
+        const startMs = Date.parse(h.startsAt);
+        const hour = String(Number.parseInt(h.hour, 10) || 0).padStart(2, "0");
+        const price = Number.isFinite(h.buyGrossPlnPerKwh)
+          ? Number(h.buyGrossPlnPerKwh).toFixed(2)
+          : "";
+        const picked = sel.has(startMs);
+        const isNow =
+          !Number.isNaN(startMs) && startMs <= now && now < startMs + 3600000;
+        const cls = [
+          "pf-cell",
+          `pf-${advice}`,
+          picked ? "pf-picked" : "",
+          isNow ? "pf-now" : "",
+        ]
+          .filter(Boolean)
+          .join(" ");
+        return `<div class="${cls}"><span class="pf-hr">${hour}</span><span class="pf-px">${price}</span></div>`;
+      })
+      .join("");
+    return `<div class="pf-strip">${cells}</div>`;
+  }
+
+  _render() {
+    if (!this._hass || !this._config) return;
+    const hass = this._hass;
+    const r = this._resolve(hass);
+    const title = esc(
+      this._config.title ||
+        (hass.devices && r.deviceId && hass.devices[r.deviceId]
+          ? hass.devices[r.deviceId].name_by_user ||
+            hass.devices[r.deviceId].name
+          : "Pstryk - odbiornik"),
+    );
+
+    if (!r.deviceId || !r.mode) {
+      this.innerHTML = `<ha-card header="${title}"><div style="padding:16px">Nie znaleziono encji odbiornika. Wskaż <code>entity</code> (np. sensor zaplanowanego startu) albo <code>device</code>.</div></ha-card>`;
+      return;
+    }
+
+    const modeState = this._state(r.mode);
+    const mode =
+      modeState && SCHED_MODES[modeState.state]
+        ? modeState.state
+        : "cheapest_window";
+    const enabled = r.schedule
+      ? this._state(r.schedule) && this._state(r.schedule).state === "on"
+      : true;
+    const planned = this._state(r.planned_start);
+    const runNow = this._state(r.run_now);
+    const running = enabled && runNow && runNow.state === "on";
+
+    const plannedTxt =
+      planned && !UNAVAIL.includes(planned.state)
+        ? this._fmtPlanned(planned.state)
+        : "-";
+    const badge = !enabled ? "Wyłączony" : running ? "Działa teraz" : "Bezczynny";
+    const badgeCls = running ? "pf-run" : "pf-idle";
+
+    const modeOptions = Object.keys(SCHED_MODES)
+      .map(
+        (m) =>
+          `<option value="${m}"${m === mode ? " selected" : ""}>${esc(SCHED_MODES[m])}</option>`,
+      )
+      .join("");
+    const modeCtl = `<label class="pf-ctl"><span>Tryb</span>
+        <select class="pf-input" data-entity="${esc(r.mode)}" data-kind="mode">${modeOptions}</select></label>`;
+    const enableCtl = r.schedule
+      ? `<label class="pf-ctl pf-enable"><input type="checkbox" data-entity="${esc(r.schedule)}" data-kind="enable"${enabled ? " checked" : ""}><span>Harmonogram</span></label>`
+      : "";
+
+    this.innerHTML = `
+      <ha-card header="${title}">
+        <style>
+          .pf-head { display:flex; flex-wrap:wrap; gap:.5rem; padding:8px 16px 0; align-items:center; }
+          .pf-stat { display:flex; flex-direction:column; border-radius:8px; padding:6px 10px; min-width:6rem; background:rgba(var(--pf-rgb, 144,144,144), .15); color:var(--primary-text-color); }
+          .pf-stat-k { font-size:.7rem; text-transform:uppercase; letter-spacing:.04em; color:var(--secondary-text-color); }
+          .pf-stat-v { font-weight:700; font-variant-numeric:tabular-nums; font-size:.98rem; }
+          .pf-badge { margin-left:auto; font-weight:700; font-size:.82rem; padding:5px 10px; border-radius:999px; }
+          .pf-run { color:#fff; background:var(--success-color, #43a047); }
+          .pf-idle { color:var(--secondary-text-color); background:rgba(var(--rgb-primary-text-color,120,120,120),.12); }
+          .pf-sched { padding:10px 16px 2px; display:flex; flex-wrap:wrap; gap:12px; align-items:flex-end; }
+          .pf-ctl { display:flex; flex-direction:column; gap:3px; font-size:.72rem; color:var(--secondary-text-color); }
+          .pf-ctl > span { text-transform:uppercase; letter-spacing:.03em; }
+          .pf-ctl small { color:var(--secondary-text-color); font-size:.66rem; }
+          .pf-input { font:inherit; padding:4px 6px; border-radius:6px; border:1px solid var(--divider-color, #ccc); background:var(--card-background-color); color:var(--primary-text-color); }
+          .pf-enable { flex-direction:row; align-items:center; gap:6px; }
+          .pf-strip { display:grid; grid-template-columns:repeat(4,1fr); gap:4px; padding:8px 16px 16px; }
+          .pf-cell { display:flex; flex-direction:column; align-items:center; border-radius:6px; padding:5px 2px; font-size:.82rem; border:2px solid transparent; background:rgba(var(--pf-rgb, 144,144,144), .15); color:var(--primary-text-color); }
+          .pf-hr { font-weight:700; font-size:.92rem; font-variant-numeric:tabular-nums; color:var(--pf, var(--primary-text-color)); }
+          .pf-px { font-size:.72rem; font-variant-numeric:tabular-nums; color:var(--secondary-text-color); }
+          .pf-use { --pf:var(--success-color, #43a047); --pf-rgb:var(--rgb-success-color, 67,160,71); }
+          .pf-neutral { --pf:var(--secondary-text-color, #9e9e9e); --pf-rgb:144,144,144; }
+          .pf-limit { --pf:var(--error-color, #e53935); --pf-rgb:var(--rgb-error-color, 229,57,53); }
+          .pf-now { border-color:var(--primary-color, var(--primary-text-color)); }
+          .pf-picked { border-color:var(--primary-color); box-shadow:0 0 0 2px var(--primary-color) inset; }
+          .pf-counts { padding:10px 16px; font-size:.84rem; color:var(--secondary-text-color); }
+        </style>
+        <div class="pf-head">
+          <div class="pf-stat"><span class="pf-stat-k">Zaplanowany start</span><span class="pf-stat-v">${esc(plannedTxt)}</span></div>
+          <span class="pf-badge ${badgeCls}">${esc(badge)}</span>
+        </div>
+        <div class="pf-sched">${modeCtl}${this._controls(mode, r)}${enableCtl}</div>
+        ${this._grid(r, planned)}
+      </ha-card>`;
+
+    this.querySelectorAll("[data-entity]").forEach((el) => {
+      el.addEventListener("change", () => this._onChange(el));
+    });
+  }
+
+  _onChange(el) {
+    const entity = el.dataset.entity;
+    const kind = el.dataset.kind;
+    const hass = this._hass;
+    if (kind === "mode") {
+      hass.callService("select", "select_option", {
+        entity_id: entity,
+        option: el.value,
+      });
+    } else if (kind === "enable") {
+      hass.callService("switch", el.checked ? "turn_on" : "turn_off", {
+        entity_id: entity,
+      });
+    } else if (kind === "time") {
+      if (!el.value) return;
+      const time = el.value.length === 5 ? `${el.value}:00` : el.value;
+      hass.callService("time", "set_value", { entity_id: entity, time });
+    } else if (kind === "number") {
+      hass.callService("number", "set_value", {
+        entity_id: entity,
+        value: Number(el.value),
+      });
+    }
+  }
+}
+
+if (!customElements.get("pstryk-fixing-scheduler-card")) {
+  customElements.define("pstryk-fixing-scheduler-card", PstrykFixingSchedulerCard);
+
+  window.customCards = window.customCards || [];
+  window.customCards.push({
+    type: "pstryk-fixing-scheduler-card",
+    name: "Pstryk Fixing Scheduler Card",
+    description:
+      "Harmonogram odbiornika (EV, bojler) sterowany cenami Pstryk Fixing.",
   });
 }
