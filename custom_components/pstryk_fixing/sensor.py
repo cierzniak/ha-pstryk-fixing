@@ -15,8 +15,10 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from . import PstrykConfigEntry
-from .const import ADVICE_OPTIONS
+from .const import ADVICE_OPTIONS, SUBENTRY_TYPE_LOAD
 from .coordinator import PstrykOutlookCoordinator
+from .load_entity import LoadSignalEntity
+from .load_scheduler import LoadScheduler
 from .outlook import parse_iso
 
 UNIT_PLN_KWH = "PLN/kWh"
@@ -44,6 +46,15 @@ async def async_setup_entry(
         entities.append(PstrykCurrentSellPriceSensor(coordinator))
         entities.append(PstrykNextSellHourSensor(coordinator))
     async_add_entities(entities)
+
+    for subentry_id, subentry in entry.subentries.items():
+        if subentry.subentry_type != SUBENTRY_TYPE_LOAD:
+            continue
+        load = coordinator.loads[subentry_id]
+        async_add_entities(
+            [PstrykPlannedStartSensor(load, subentry.title)],
+            config_subentry_id=subentry_id,
+        )
 
 
 class _PstrykSensorBase(CoordinatorEntity[PstrykOutlookCoordinator], SensorEntity):
@@ -206,4 +217,32 @@ class PstrykCheapestHourTodaySensor(_PstrykSensorBase):
         return {
             "hour": ref.get("hour"),
             "buy_gross_pln_per_kwh": ref.get("buyGrossPlnPerKwh"),
+        }
+
+
+class PstrykPlannedStartSensor(LoadSignalEntity, SensorEntity):
+    """Next planned start for a load; carries the selected hours for the card."""
+
+    _attr_translation_key = "planned_start"
+    _attr_device_class = SensorDeviceClass.TIMESTAMP
+    _attr_icon = "mdi:calendar-arrow-right"
+
+    def __init__(self, load: LoadScheduler, name: str) -> None:
+        super().__init__(load, name)
+        self._attr_unique_id = f"{load.subentry_id}_planned_start"
+
+    @property
+    def native_value(self) -> datetime | None:
+        return self._load.result.planned_start
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        result = self._load.result
+        return {
+            "selected_hours": [s.isoformat() for s in result.selected_starts],
+            "selected_count": result.selected_count,
+            "total_price": result.total_price,
+            "avg_price": result.avg_price,
+            "mode": self._load.mode,
+            "enabled": self._load.enabled,
         }
