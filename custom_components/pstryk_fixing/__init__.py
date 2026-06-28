@@ -16,12 +16,20 @@ from homeassistant.helpers.typing import ConfigType
 from homeassistant.loader import async_get_integration
 
 from .api import PstrykApiClient
-from .const import DEFAULT_BASE_URL, DOMAIN
+from .const import DEFAULT_BASE_URL, DOMAIN, SUBENTRY_TYPE_LOAD
 from .coordinator import PstrykOutlookCoordinator
+from .load_scheduler import LoadScheduler
 
 _LOGGER = logging.getLogger(__name__)
 
-PLATFORMS: list[Platform] = [Platform.SENSOR, Platform.BINARY_SENSOR]
+PLATFORMS: list[Platform] = [
+    Platform.SENSOR,
+    Platform.BINARY_SENSOR,
+    Platform.SWITCH,
+    Platform.SELECT,
+    Platform.NUMBER,
+    Platform.TIME,
+]
 
 type PstrykConfigEntry = ConfigEntry[PstrykOutlookCoordinator]
 
@@ -95,9 +103,23 @@ async def async_setup_entry(hass: HomeAssistant, entry: PstrykConfigEntry) -> bo
     )
     await coordinator.async_config_entry_first_refresh()
 
+    coordinator.loads = {}
+    for subentry_id, subentry in entry.subentries.items():
+        if subentry.subentry_type != SUBENTRY_TYPE_LOAD:
+            continue
+        load = LoadScheduler(hass, coordinator, subentry_id, dict(subentry.data))
+        coordinator.loads[subentry_id] = load
+        entry.async_on_unload(load.async_start())
+
     entry.runtime_data = coordinator
+    entry.async_on_unload(entry.add_update_listener(_async_reload_entry))
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     return True
+
+
+async def _async_reload_entry(hass: HomeAssistant, entry: PstrykConfigEntry) -> None:
+    """Reload so a newly added/removed load subentry materialises its entities."""
+    await hass.config_entries.async_reload(entry.entry_id)
 
 
 async def async_unload_entry(hass: HomeAssistant, entry: PstrykConfigEntry) -> bool:

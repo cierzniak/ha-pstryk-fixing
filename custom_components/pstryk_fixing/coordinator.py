@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import logging
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
@@ -21,7 +21,23 @@ from .const import (
 )
 from .outlook import extract_now_block, extract_today_summary, resolve_current_hour
 
+if TYPE_CHECKING:
+    from .load_scheduler import LoadScheduler
+
 _LOGGER = logging.getLogger(__name__)
+
+
+def load_device_info(
+    coordinator: PstrykOutlookCoordinator, subentry_id: str, name: str
+) -> dict[str, Any]:
+    """Device descriptor for a load, linked to its parent tariff device."""
+    return {
+        "identifiers": {(DOMAIN, f"load_{subentry_id}")},
+        "name": name,
+        "manufacturer": "Pstryk Fixing",
+        "model": "Load scheduler",
+        "via_device": (DOMAIN, f"{coordinator.operator}_{coordinator.tariff}"),
+    }
 
 
 class PstrykOutlookCoordinator(DataUpdateCoordinator[dict[str, Any]]):
@@ -39,6 +55,7 @@ class PstrykOutlookCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         self.tariff: str = entry.data[CONF_TARIFF]
         self.include_sell: bool = entry.data.get(CONF_INCLUDE_SELL, True)
         self.integration_version = integration_version
+        self.loads: dict[str, LoadScheduler] = {}
         super().__init__(
             hass,
             logger=_LOGGER,

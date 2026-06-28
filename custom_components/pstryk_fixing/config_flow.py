@@ -5,7 +5,14 @@ from __future__ import annotations
 from typing import Any
 
 import voluptuous as vol
-from homeassistant.config_entries import ConfigFlow, ConfigFlowResult
+from homeassistant.config_entries import (
+    ConfigEntry,
+    ConfigFlow,
+    ConfigFlowResult,
+    ConfigSubentryFlow,
+    SubentryFlowResult,
+)
+from homeassistant.core import callback
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.selector import (
     BooleanSelector,
@@ -13,17 +20,23 @@ from homeassistant.helpers.selector import (
     SelectSelector,
     SelectSelectorConfig,
     SelectSelectorMode,
+    TextSelector,
 )
 
 from .api import PstrykApiClient, PstrykApiError
 from .const import (
     CONF_INCLUDE_SELL,
+    CONF_LOAD_NAME,
+    CONF_MODE,
     CONF_OPERATOR,
     CONF_TARIFF,
     DEFAULT_BASE_URL,
     DEFAULT_INCLUDE_SELL,
+    DEFAULT_MODE,
     DOMAIN,
+    SUBENTRY_TYPE_LOAD,
 )
+from .scheduler import MODES
 
 
 class PstrykConfigFlow(ConfigFlow, domain=DOMAIN):
@@ -107,3 +120,38 @@ class PstrykConfigFlow(ConfigFlow, domain=DOMAIN):
 
     def _client(self) -> PstrykApiClient:
         return PstrykApiClient(DEFAULT_BASE_URL, async_get_clientsession(self.hass))
+
+    @classmethod
+    @callback
+    def async_get_supported_subentry_types(
+        cls, config_entry: ConfigEntry
+    ) -> dict[str, type[ConfigSubentryFlow]]:
+        """Loads (EV, boiler, ...) are added as subentries of a tariff entry."""
+        return {SUBENTRY_TYPE_LOAD: LoadSubentryFlowHandler}
+
+
+class LoadSubentryFlowHandler(ConfigSubentryFlow):
+    """Add a schedulable load (EV charger, boiler, ...) under a tariff entry."""
+
+    async def async_step_user(
+        self, user_input: dict[str, Any] | None = None
+    ) -> SubentryFlowResult:
+        if user_input is not None:
+            return self.async_create_entry(
+                title=user_input[CONF_LOAD_NAME], data=user_input
+            )
+        return self.async_show_form(
+            step_id="user",
+            data_schema=vol.Schema(
+                {
+                    vol.Required(CONF_LOAD_NAME): TextSelector(),
+                    vol.Required(CONF_MODE, default=DEFAULT_MODE): SelectSelector(
+                        SelectSelectorConfig(
+                            options=[SelectOptionDict(value=m) for m in MODES],
+                            mode=SelectSelectorMode.DROPDOWN,
+                            translation_key="mode",
+                        )
+                    ),
+                }
+            ),
+        )
