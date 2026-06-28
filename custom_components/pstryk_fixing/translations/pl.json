@@ -22,7 +22,8 @@
   },
   "config_subentries": {
     "load": {
-      "title": "Odbiornik",
+      "initiate_flow": { "user": "Dodaj odbiornik" },
+      "entry_type": "Odbiornik",
       "step": {
         "user": {
           "title": "Dodaj odbiornik",

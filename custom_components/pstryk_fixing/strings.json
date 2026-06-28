@@ -22,7 +22,8 @@
   },
   "config_subentries": {
     "load": {
-      "title": "Load",
+      "initiate_flow": { "user": "Add load" },
+      "entry_type": "Load",
       "step": {
         "user": {
           "title": "Add a load",
