@@ -20,6 +20,28 @@
       "cannot_connect": "Could not reach the Pstryk API."
     }
   },
+  "config_subentries": {
+    "load": {
+      "title": "Load",
+      "step": {
+        "user": {
+          "title": "Add a load",
+          "description": "A schedulable device (EV charger, boiler, ...).",
+          "data": { "name": "Name", "mode": "Mode" }
+        }
+      }
+    }
+  },
+  "selector": {
+    "mode": {
+      "options": {
+        "cheapest_window": "Cheapest window",
+        "fixed": "Fixed start",
+        "price_below": "Below price ceiling",
+        "advice_use": "Recommended hours (use)"
+      }
+    }
+  },
   "entity": {
     "sensor": {
       "current_price": { "name": "Current price" },
@@ -30,10 +52,35 @@
       "current_sell_price": { "name": "Current sell price" },
       "next_cheap_hour": { "name": "Next cheap hour" },
       "next_sell_hour": { "name": "Next sell hour" },
-      "cheapest_hour_today": { "name": "Cheapest hour today" }
+      "cheapest_hour_today": { "name": "Cheapest hour today" },
+      "planned_start": { "name": "Planned start" }
     },
     "binary_sensor": {
-      "sell_now": { "name": "Sell now" }
+      "sell_now": { "name": "Sell now" },
+      "run_now": { "name": "Run now" }
+    },
+    "switch": {
+      "schedule": { "name": "Schedule" }
+    },
+    "select": {
+      "mode": {
+        "name": "Mode",
+        "state": {
+          "cheapest_window": "Cheapest window",
+          "fixed": "Fixed start",
+          "price_below": "Below price ceiling",
+          "advice_use": "Recommended hours (use)"
+        }
+      }
+    },
+    "number": {
+      "duration": { "name": "Duration (hours)" },
+      "price_ceiling": { "name": "Price ceiling" }
+    },
+    "time": {
+      "ready_by": { "name": "Ready by" },
+      "start_at": { "name": "Start at" },
+      "stop_at": { "name": "Stop at" }
     }
   }
 }
