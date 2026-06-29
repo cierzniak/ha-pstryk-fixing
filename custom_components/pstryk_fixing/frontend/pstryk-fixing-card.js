@@ -17,7 +17,7 @@
  *   title: Pstryk - wskazówki na dziś
  */
 
-const CARD_VERSION = "0.2.0";
+const CARD_VERSION = "0.2.2";
 
 const LABELS = { use: "Używaj", neutral: "Neutralnie", limit: "Ogranicz" };
 
@@ -43,7 +43,17 @@ class PstrykFixingCard extends HTMLElement {
     return 3;
   }
 
-  static getStubConfig() {
+  static getConfigElement() {
+    return document.createElement("pstryk-fixing-card-editor");
+  }
+
+  static getStubConfig(hass) {
+    if (hass) {
+      const id = Object.keys(hass.states).find(
+        (e) => e.startsWith("sensor.") && e.endsWith("_current_price"),
+      );
+      if (id) return { entity: id };
+    }
     return { entity: "" };
   }
 
@@ -257,12 +267,9 @@ const UNAVAIL = ["unknown", "unavailable", ""];
 
 class PstrykFixingSchedulerCard extends HTMLElement {
   setConfig(config) {
-    if (!config || (!config.entity && !config.device)) {
-      throw new Error(
-        "Podaj 'entity' (dowolna encja odbiornika) albo 'device' (urządzenie odbiornika).",
-      );
-    }
-    this._config = config;
+    // Tolerate an empty config so the visual editor preview can show a hint
+    // until a load is picked, instead of throwing.
+    this._config = config || {};
   }
 
   set hass(hass) {
@@ -277,8 +284,18 @@ class PstrykFixingSchedulerCard extends HTMLElement {
     return 5;
   }
 
-  static getStubConfig() {
-    return { entity: "" };
+  static getConfigElement() {
+    return document.createElement("pstryk-fixing-scheduler-card-editor");
+  }
+
+  static getStubConfig(hass) {
+    if (hass && hass.devices) {
+      const dev = Object.values(hass.devices).find(
+        (d) => d.model === "Load scheduler",
+      );
+      if (dev) return { device: dev.id };
+    }
+    return {};
   }
 
   _resolve(hass) {
@@ -291,25 +308,28 @@ class PstrykFixingSchedulerCard extends HTMLElement {
     const onDevice = deviceId
       ? ents.filter((e) => e.device_id === deviceId)
       : [];
-    const find = (domain, suffix) => {
+    // Match by translation_key (stable, locale-independent); the entity_id is a
+    // slug of the localised name (e.g. select.*_tryb), so suffix matching alone
+    // would miss it. Keep the suffix as a fallback for older HA frontends.
+    const find = (domain, key) => {
       const hit = onDevice.find(
         (e) =>
           e.entity_id.startsWith(`${domain}.`) &&
-          e.entity_id.endsWith(suffix),
+          (e.translation_key === key || e.entity_id.endsWith(`_${key}`)),
       );
       return hit ? hit.entity_id : null;
     };
     return {
       deviceId,
-      schedule: cfg.schedule_entity || find("switch", "_schedule"),
-      mode: cfg.mode_entity || find("select", "_mode"),
-      ready_by: find("time", "_ready_by"),
-      start_at: find("time", "_start_at"),
-      stop_at: find("time", "_stop_at"),
-      duration: find("number", "_duration"),
-      price_ceiling: find("number", "_price_ceiling"),
-      run_now: find("binary_sensor", "_run_now"),
-      planned_start: cfg.planned_entity || find("sensor", "_planned_start"),
+      schedule: cfg.schedule_entity || find("switch", "schedule"),
+      mode: cfg.mode_entity || find("select", "mode"),
+      ready_by: find("time", "ready_by"),
+      start_at: find("time", "start_at"),
+      stop_at: find("time", "stop_at"),
+      duration: find("number", "duration"),
+      price_ceiling: find("number", "price_ceiling"),
+      run_now: find("binary_sensor", "run_now"),
+      planned_start: cfg.planned_entity || find("sensor", "planned_start"),
       price: cfg.price_entity || this._findPrice(hass, deviceId),
     };
   }
@@ -322,7 +342,8 @@ class PstrykFixingSchedulerCard extends HTMLElement {
       const hit = ents.find(
         (e) =>
           e.device_id === parentId &&
-          e.entity_id.endsWith("_current_price"),
+          (e.translation_key === "current_price" ||
+            e.entity_id.endsWith("_current_price")),
       );
       if (hit) return hit.entity_id;
     }
@@ -562,4 +583,79 @@ if (!customElements.get("pstryk-fixing-scheduler-card")) {
     description:
       "Harmonogram odbiornika (EV, bojler) sterowany cenami Pstryk Fixing.",
   });
+}
+
+/**
+ * Visual config editors. HA shows these (instead of forcing the YAML editor)
+ * because the cards expose static getConfigElement(). Each editor wraps a native
+ * ha-form, so the user gets HA's entity/device pickers with no YAML.
+ */
+class PstrykBaseCardEditor extends HTMLElement {
+  setConfig(config) {
+    this._config = config || {};
+    this._render();
+  }
+
+  set hass(hass) {
+    this._hass = hass;
+    this._render();
+  }
+
+  _render() {
+    if (!this._hass || !this._config) return;
+    if (!this._form) {
+      this._form = document.createElement("ha-form");
+      this._form.addEventListener("value-changed", (ev) => {
+        ev.stopPropagation();
+        this.dispatchEvent(
+          new CustomEvent("config-changed", {
+            detail: { config: ev.detail.value },
+            bubbles: true,
+            composed: true,
+          }),
+        );
+      });
+      this.appendChild(this._form);
+    }
+    this._form.hass = this._hass;
+    this._form.schema = this.SCHEMA;
+    this._form.data = this._config;
+    this._form.computeLabel = (s) => this.LABELS[s.name] || s.name;
+  }
+}
+
+class PstrykFixingCardEditor extends PstrykBaseCardEditor {
+  SCHEMA = [
+    {
+      name: "entity",
+      required: true,
+      selector: { entity: { integration: "pstryk_fixing", domain: "sensor" } },
+    },
+    { name: "title", selector: { text: {} } },
+  ];
+  LABELS = { entity: "Sensor ceny", title: "Tytuł" };
+}
+
+class PstrykFixingSchedulerCardEditor extends PstrykBaseCardEditor {
+  SCHEMA = [
+    {
+      name: "device",
+      required: true,
+      selector: {
+        device: { integration: "pstryk_fixing", model: "Load scheduler" },
+      },
+    },
+    { name: "title", selector: { text: {} } },
+  ];
+  LABELS = { device: "Odbiornik", title: "Tytuł (opcjonalnie)" };
+}
+
+if (!customElements.get("pstryk-fixing-card-editor")) {
+  customElements.define("pstryk-fixing-card-editor", PstrykFixingCardEditor);
+}
+if (!customElements.get("pstryk-fixing-scheduler-card-editor")) {
+  customElements.define(
+    "pstryk-fixing-scheduler-card-editor",
+    PstrykFixingSchedulerCardEditor,
+  );
 }
