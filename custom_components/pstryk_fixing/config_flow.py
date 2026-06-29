@@ -147,7 +147,9 @@ class LoadSubentryFlowHandler(ConfigSubentryFlow):
                     vol.Required(CONF_LOAD_NAME): TextSelector(),
                     vol.Required(CONF_MODE, default=DEFAULT_MODE): SelectSelector(
                         SelectSelectorConfig(
-                            options=[SelectOptionDict(value=m) for m in MODES],
+                            # label is required by the selector schema; the
+                            # translation_key swaps in the localised text.
+                            options=[SelectOptionDict(value=m, label=m) for m in MODES],
                             mode=SelectSelectorMode.DROPDOWN,
                             translation_key="mode",
                         )
