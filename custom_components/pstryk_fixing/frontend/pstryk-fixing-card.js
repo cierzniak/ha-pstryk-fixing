@@ -17,7 +17,7 @@
  *   title: Pstryk - wskazówki na dziś
  */
 
-const CARD_VERSION = "0.2.2";
+const CARD_VERSION = "0.2.3";
 
 const LABELS = { use: "Używaj", neutral: "Neutralnie", limit: "Ogranicz" };
 
@@ -25,6 +25,98 @@ const ESCAPE = { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#
 
 /** Escape a value before interpolating it into an HTML string (XSS guard). */
 const esc = (value) => String(value).replace(/[&<>"']/g, (c) => ESCAPE[c]);
+
+/**
+ * Build the forward-looking 24-hour window: the current hour plus the next 23,
+ * drawing from `today` then `tomorrow`. Always returns exactly 24 slots; hours
+ * with no data yet (e.g. tomorrow not published) are `null` so the card renders
+ * a "?" placeholder instead of leaving the grid short or padded with stale past
+ * hours. Returns `null` only when there is no data at all (caller shows a
+ * waiting message).
+ */
+const next24Hours = (today, tomorrow) => {
+  const all = (Array.isArray(today) ? today : []).concat(
+    Array.isArray(tomorrow) ? tomorrow : [],
+  );
+  if (all.length === 0) return null;
+  const now = Date.now();
+  let start = all.findIndex((h) => {
+    const t = Date.parse(h.startsAt);
+    return !Number.isNaN(t) && t <= now && now < t + 3600000;
+  });
+  if (start < 0) start = 0; // "now" not in the data -> show from the earliest hour
+  const slots = [];
+  for (let i = 0; i < 24; i++) slots.push(all[start + i] || null);
+  return slots;
+};
+
+/** True if the hour row is the one in progress right now. */
+const isNowHour = (h) => {
+  const t = Date.parse(h.startsAt);
+  return !Number.isNaN(t) && t <= Date.now() && Date.now() < t + 3600000;
+};
+
+/** A "?" cell for an hour whose data is not available yet. */
+const EMPTY_CELL = `<div class="pf-cell pf-empty"><span class="pf-hr">?</span><span class="pf-prices"><span class="pf-buy">?</span></span></div>`;
+
+/**
+ * Render one hour cell: a large hour on the left, the buy price (and, when
+ * `showSell` and a sell price are present, the sell price underneath) stacked
+ * on the right. `extra` adds classes (e.g. "pf-picked"); `title` is a tooltip.
+ * Loads care only about the buy price, so the scheduler card passes
+ * showSell=false.
+ */
+const hourCell = (h, { extra = [], title = "", showSell = true } = {}) => {
+  if (!h) return EMPTY_CELL;
+  const advice = LABELS[h.consumption] ? h.consumption : "neutral";
+  const hour = String(Number.parseInt(h.hour, 10) || 0).padStart(2, "0");
+  const buy = Number.isFinite(h.buyGrossPlnPerKwh)
+    ? Number(h.buyGrossPlnPerKwh).toFixed(2)
+    : "";
+  const sell =
+    showSell && Number.isFinite(h.sellGrossPlnPerKwh)
+      ? Number(h.sellGrossPlnPerKwh).toFixed(2)
+      : "";
+  const classes = [
+    "pf-cell",
+    `pf-${advice}`,
+    showSell && h.sell === true ? "pf-sell" : "",
+    isNowHour(h) ? "pf-now" : "",
+    ...extra,
+  ]
+    .filter(Boolean)
+    .join(" ");
+  const prices = sell
+    ? `<span class="pf-buy">${buy}</span><span class="pf-sellpx">${sell}</span>`
+    : `<span class="pf-buy">${buy}</span>`;
+  const tip = title ? ` title="${title}"` : "";
+  return `<div class="${classes}"${tip}>
+      <span class="pf-hr">${hour}</span>
+      <span class="pf-prices">${prices}</span>
+    </div>`;
+};
+
+/**
+ * Shared grid + cell styling, injected into both cards' <style> blocks so the
+ * compact "hour | buy / sell" cell stays identical across them. Advice colours
+ * (pf-use/neutral/limit) live here too because the main card's legend reuses
+ * them.
+ */
+const CELL_CSS = `
+  .pf-strip { display:grid; grid-template-columns:repeat(3,1fr); gap:4px; padding:8px 16px 16px; }
+  .pf-cell { display:flex; align-items:center; justify-content:space-between; gap:6px; border-radius:6px; padding:4px 9px; border:2px solid transparent; background:rgba(var(--pf-rgb, 144,144,144), .15); color:var(--primary-text-color); }
+  .pf-hr { font-weight:700; font-size:1.35rem; line-height:1; font-variant-numeric:tabular-nums; color:var(--pf, var(--primary-text-color)); }
+  .pf-prices { display:flex; flex-direction:column; align-items:flex-end; line-height:1.15; }
+  .pf-buy { font-size:.82rem; font-weight:600; font-variant-numeric:tabular-nums; color:var(--primary-text-color); }
+  .pf-sellpx { font-size:.72rem; font-variant-numeric:tabular-nums; color:var(--info-color, #2196f3); }
+  .pf-use { --pf:var(--success-color, #43a047); --pf-rgb:var(--rgb-success-color, 67,160,71); }
+  .pf-neutral { --pf:var(--secondary-text-color, #9e9e9e); --pf-rgb:144,144,144; }
+  .pf-limit { --pf:var(--error-color, #e53935); --pf-rgb:var(--rgb-error-color, 229,57,53); }
+  .pf-sell { box-shadow:inset 0 -3px 0 var(--info-color, #2196f3); }
+  .pf-now { border-color:var(--primary-color, var(--primary-text-color)); }
+  .pf-picked { border-color:var(--primary-color); box-shadow:0 0 0 2px var(--primary-color) inset; }
+  .pf-empty { background:rgba(var(--rgb-disabled-text-color, 189,189,189), .08); }
+  .pf-empty .pf-hr, .pf-empty .pf-buy { color:var(--disabled-text-color, #9e9e9e); }`;
 
 class PstrykFixingCard extends HTMLElement {
   setConfig(config) {
@@ -136,15 +228,21 @@ class PstrykFixingCard extends HTMLElement {
       return;
     }
 
-    const hours = Array.isArray(stateObj.attributes.today)
-      ? stateObj.attributes.today
-      : [];
+    // Forward-looking window: the current hour + the next 23, from today then
+    // tomorrow. Missing hours render as "?" so the grid stays exactly 24 long.
+    const slots = next24Hours(
+      stateObj.attributes.today,
+      stateObj.attributes.tomorrow,
+    );
 
-    if (hours.length === 0) {
+    if (slots === null) {
       this.innerHTML = `<ha-card header="${title}"><div style="padding:16px">Oczekiwanie na dane fixingu...</div></ha-card>`;
       return;
     }
 
+    const hours = Array.isArray(stateObj.attributes.today)
+      ? stateObj.attributes.today
+      : [];
     const nowIndex = this._currentIndex(hours);
     const nowBlock =
       stateObj.attributes.now && typeof stateObj.attributes.now === "object"
@@ -156,30 +254,18 @@ class PstrykFixingCard extends HTMLElement {
         ? stateObj.attributes.today_summary
         : null;
     const header = this._header(nowBlock, summary, hours, nowIndex);
-    const cells = hours
-      .map((h, i) => {
-        // Coerce/validate every value before it reaches the HTML string.
+    const cells = slots
+      .map((h) => {
+        if (!h) return EMPTY_CELL;
         const advice = LABELS[h.consumption] ? h.consumption : "neutral";
         const hour = String(Number.parseInt(h.hour, 10) || 0).padStart(2, "0");
         const price = Number.isFinite(h.buyGrossPlnPerKwh)
           ? Number(h.buyGrossPlnPerKwh).toFixed(2)
           : "";
-        const sell = h.sell === true;
-        const classes = [
-          "pf-cell",
-          `pf-${advice}`,
-          sell ? "pf-sell" : "",
-          i === nowIndex ? "pf-now" : "",
-        ]
-          .filter(Boolean)
-          .join(" ");
         const tip = esc(
-          `${hour}:00 - ${LABELS[advice]}${sell ? " · Sprzedaj" : ""}${price ? ` (${price} zł/kWh)` : ""}`,
+          `${hour}:00 - ${LABELS[advice]}${h.sell === true ? " · Sprzedaj" : ""}${price ? ` (${price} zł/kWh)` : ""}`,
         );
-        return `<div class="${classes}" title="${tip}">
-            <span class="pf-hr">${hour}</span>
-            <span class="pf-px">${price}</span>
-          </div>`;
+        return hourCell(h, { title: tip });
       })
       .join("");
 
@@ -189,17 +275,10 @@ class PstrykFixingCard extends HTMLElement {
           /* Colours come from Home Assistant theme variables so the card tracks
              the active light/dark theme; the --rgb-* fallbacks keep it readable
              if a theme omits one. Each advice class sets --pf/--pf-rgb, reused
-             for the cell tint, hour colour, legend swatch and header chips. */
-          /* 4 columns everywhere (6h per column). */
-          .pf-strip { display:grid; grid-template-columns:repeat(4,1fr); gap:4px; padding:0 16px 16px; }
-          .pf-cell { display:flex; flex-direction:column; align-items:center; border-radius:6px; padding:5px 2px; font-size:.82rem; border:2px solid transparent; background:rgba(var(--pf-rgb, 144,144,144), .15); color:var(--primary-text-color); }
-          .pf-hr { font-weight:700; font-size:.92rem; font-variant-numeric:tabular-nums; color:var(--pf, var(--primary-text-color)); }
-          .pf-px { font-size:.72rem; font-variant-numeric:tabular-nums; color:var(--secondary-text-color); }
-          .pf-use { --pf:var(--success-color, #43a047); --pf-rgb:var(--rgb-success-color, 67,160,71); }
-          .pf-neutral { --pf:var(--secondary-text-color, #9e9e9e); --pf-rgb:144,144,144; }
-          .pf-limit { --pf:var(--error-color, #e53935); --pf-rgb:var(--rgb-error-color, 229,57,53); }
-          .pf-sell { box-shadow:inset 0 -3px 0 var(--info-color, #2196f3); }
-          .pf-now { border-color:var(--primary-color, var(--primary-text-color)); }
+             for the cell tint, hour colour, legend swatch and header chips. The
+             compact hour grid (3 columns, "hour | buy / sell" cells) is shared
+             with the scheduler card via CELL_CSS. */
+          ${CELL_CSS}
           .pf-legend { display:flex; flex-wrap:wrap; gap:.7rem; padding:8px 16px 0; font-size:.84rem; color:var(--primary-text-color); }
           .pf-sw { width:.85rem; height:.85rem; border-radius:3px; display:inline-block; vertical-align:middle; margin-right:.25rem; background:var(--pf, #888); }
           .pf-sellsw { background:var(--card-background-color, transparent); box-shadow:inset 0 -3px 0 var(--info-color, #2196f3); }
@@ -413,16 +492,13 @@ class PstrykFixingSchedulerCard extends HTMLElement {
 
   _grid(r, planned) {
     const priceObj = this._state(r.price);
-    const today =
-      priceObj && Array.isArray(priceObj.attributes.today)
-        ? priceObj.attributes.today
-        : [];
-    const tomorrow =
-      priceObj && Array.isArray(priceObj.attributes.tomorrow)
-        ? priceObj.attributes.tomorrow
-        : [];
-    const allHours = today.concat(tomorrow);
-    if (allHours.length === 0) {
+    // Forward-looking window: the current hour + the next 23 (today, then
+    // tomorrow), "?" where data is missing. A load only cares about the buy
+    // price, so the sell price is suppressed (showSell:false).
+    const slots = priceObj
+      ? next24Hours(priceObj.attributes.today, priceObj.attributes.tomorrow)
+      : null;
+    if (slots === null) {
       return `<div class="pf-counts">Czeka na ceny fixingu...</div>`;
     }
     const sel = new Set(
@@ -433,27 +509,14 @@ class PstrykFixingSchedulerCard extends HTMLElement {
         .map((s) => Date.parse(s))
         .filter((n) => !Number.isNaN(n)),
     );
-    const now = Date.now();
-    const cells = allHours
+    const cells = slots
       .map((h) => {
-        const advice = LABELS[h.consumption] ? h.consumption : "neutral";
-        const startMs = Date.parse(h.startsAt);
-        const hour = String(Number.parseInt(h.hour, 10) || 0).padStart(2, "0");
-        const price = Number.isFinite(h.buyGrossPlnPerKwh)
-          ? Number(h.buyGrossPlnPerKwh).toFixed(2)
-          : "";
-        const picked = sel.has(startMs);
-        const isNow =
-          !Number.isNaN(startMs) && startMs <= now && now < startMs + 3600000;
-        const cls = [
-          "pf-cell",
-          `pf-${advice}`,
-          picked ? "pf-picked" : "",
-          isNow ? "pf-now" : "",
-        ]
-          .filter(Boolean)
-          .join(" ");
-        return `<div class="${cls}"><span class="pf-hr">${hour}</span><span class="pf-px">${price}</span></div>`;
+        if (!h) return EMPTY_CELL;
+        const picked = sel.has(Date.parse(h.startsAt));
+        return hourCell(h, {
+          extra: picked ? ["pf-picked"] : [],
+          showSell: false,
+        });
       })
       .join("");
     return `<div class="pf-strip">${cells}</div>`;
@@ -523,15 +586,7 @@ class PstrykFixingSchedulerCard extends HTMLElement {
           .pf-ctl small { color:var(--secondary-text-color); font-size:.66rem; }
           .pf-input { font:inherit; padding:4px 6px; border-radius:6px; border:1px solid var(--divider-color, #ccc); background:var(--card-background-color); color:var(--primary-text-color); }
           .pf-enable { flex-direction:row; align-items:center; gap:6px; }
-          .pf-strip { display:grid; grid-template-columns:repeat(4,1fr); gap:4px; padding:8px 16px 16px; }
-          .pf-cell { display:flex; flex-direction:column; align-items:center; border-radius:6px; padding:5px 2px; font-size:.82rem; border:2px solid transparent; background:rgba(var(--pf-rgb, 144,144,144), .15); color:var(--primary-text-color); }
-          .pf-hr { font-weight:700; font-size:.92rem; font-variant-numeric:tabular-nums; color:var(--pf, var(--primary-text-color)); }
-          .pf-px { font-size:.72rem; font-variant-numeric:tabular-nums; color:var(--secondary-text-color); }
-          .pf-use { --pf:var(--success-color, #43a047); --pf-rgb:var(--rgb-success-color, 67,160,71); }
-          .pf-neutral { --pf:var(--secondary-text-color, #9e9e9e); --pf-rgb:144,144,144; }
-          .pf-limit { --pf:var(--error-color, #e53935); --pf-rgb:var(--rgb-error-color, 229,57,53); }
-          .pf-now { border-color:var(--primary-color, var(--primary-text-color)); }
-          .pf-picked { border-color:var(--primary-color); box-shadow:0 0 0 2px var(--primary-color) inset; }
+          ${CELL_CSS}
           .pf-counts { padding:10px 16px; font-size:.84rem; color:var(--secondary-text-color); }
         </style>
         <div class="pf-head">
