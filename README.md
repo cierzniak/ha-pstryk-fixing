@@ -1,7 +1,7 @@
 # Pstryk Fixing - Home Assistant
 
 Integracja Home Assistant **wraz z** kartą Lovelace dla godzinowych cen prądu
-[Pstryk Fixing](https://pstryk.gdansk.best). Wystawia gotową pod automatyzacje
+[Pstryk Fixing](https://dynamiczne.info). Wystawia gotową pod automatyzacje
 rekomendację na każdą godzinę: **używaj / ogranicz / sprzedaj**, a od `0.2.0` także
 **harmonogramy odbiorników** (EV, bojler, ...), które same wybierają najtańsze godziny.
 
@@ -13,12 +13,12 @@ rozładować / sprzedać do sieci (wysoka cena odkupu).
 > Status: `0.2.0`, wczesne wydanie. Zweryfikowane na żywej instancji Home Assistant
 > (integracja się konfiguruje, encje wypełniają się z API). Przejrzyj zanim oprzesz
 > na tym krytyczne automatyzacje. Wymaga API Pstryk Fixing z endpointem
-> `GET /api/v1/outlook` (działa na `pstryk.gdansk.best`).
+> `GET /api/v1/outlook` (działa na `dynamiczne.info`).
 
 ## Wymagania
 
 - Home Assistant `2024.8` lub nowszy.
-- Dostęp sieciowy do `https://pstryk.gdansk.best` (publiczne API; bez konta, bez klucza).
+- Dostęp sieciowy do `https://dynamiczne.info` (publiczne API; bez konta, bez klucza).
 
 ## Instalacja (HACS)
 
@@ -47,7 +47,7 @@ Ustawienia -> Urządzenia i usługi -> **Dodaj integrację** -> *Pstryk Fixing*:
 1. Wybierz swojego **operatora dystrybucji** (pobierany z API).
 2. Wybierz **taryfę** oraz czy pobierać **ceny sprzedaży (odkupu)**.
 
-Adres API jest stały (`pstryk.gdansk.best`) - nie ma nic więcej do ustawiania. Możesz
+Adres API jest stały (`dynamiczne.info`) - nie ma nic więcej do ustawiania. Możesz
 dodać integrację wiele razy, dla kilku kombinacji operator/taryfa.
 
 ## Encje

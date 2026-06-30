@@ -24,7 +24,7 @@ DEFAULT_MODE: Final = MODE_CHEAPEST_WINDOW
 DEFAULT_DURATION: Final = 3
 
 # The public API runs on a single fixed host; there is nothing to configure.
-DEFAULT_BASE_URL: Final = "https://pstryk.gdansk.best"
+DEFAULT_BASE_URL: Final = "https://dynamiczne.info"
 DEFAULT_INCLUDE_SELL: Final = True
 
 # Day-ahead prices change at most daily; tomorrow is published in the early
