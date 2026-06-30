@@ -28,18 +28,8 @@
         "user": {
           "title": "Dodaj odbiornik",
           "description": "Sterowalne urządzenie (ładowarka EV, bojler, ...).",
-          "data": { "name": "Nazwa", "mode": "Tryb" }
+          "data": { "name": "Nazwa" }
         }
-      }
-    }
-  },
-  "selector": {
-    "mode": {
-      "options": {
-        "cheapest_window": "Najtańsze okno",
-        "fixed": "Sztywny start",
-        "price_below": "Poniżej progu ceny",
-        "advice_use": "Godziny zalecane (use)"
       }
     }
   },

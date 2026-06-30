@@ -27,16 +27,13 @@ from .api import PstrykApiClient, PstrykApiError
 from .const import (
     CONF_INCLUDE_SELL,
     CONF_LOAD_NAME,
-    CONF_MODE,
     CONF_OPERATOR,
     CONF_TARIFF,
     DEFAULT_BASE_URL,
     DEFAULT_INCLUDE_SELL,
-    DEFAULT_MODE,
     DOMAIN,
     SUBENTRY_TYPE_LOAD,
 )
-from .scheduler import MODES
 
 
 class PstrykConfigFlow(ConfigFlow, domain=DOMAIN):
@@ -137,6 +134,9 @@ class LoadSubentryFlowHandler(ConfigSubentryFlow):
         self, user_input: dict[str, Any] | None = None
     ) -> SubentryFlowResult:
         if user_input is not None:
+            # Only the name is asked here; the mode defaults to cheapest_window
+            # (LoadScheduler reads data.get("mode", DEFAULT_MODE)) and is changed
+            # later via the load's "mode" select entity / the scheduler card.
             return self.async_create_entry(
                 title=user_input[CONF_LOAD_NAME], data=user_input
             )
@@ -145,15 +145,6 @@ class LoadSubentryFlowHandler(ConfigSubentryFlow):
             data_schema=vol.Schema(
                 {
                     vol.Required(CONF_LOAD_NAME): TextSelector(),
-                    vol.Required(CONF_MODE, default=DEFAULT_MODE): SelectSelector(
-                        SelectSelectorConfig(
-                            # label is required by the selector schema; the
-                            # translation_key swaps in the localised text.
-                            options=[SelectOptionDict(value=m, label=m) for m in MODES],
-                            mode=SelectSelectorMode.DROPDOWN,
-                            translation_key="mode",
-                        )
-                    ),
                 }
             ),
         )

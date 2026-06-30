@@ -28,18 +28,8 @@
         "user": {
           "title": "Add a load",
           "description": "A schedulable device (EV charger, boiler, ...).",
-          "data": { "name": "Name", "mode": "Mode" }
+          "data": { "name": "Name" }
         }
-      }
-    }
-  },
-  "selector": {
-    "mode": {
-      "options": {
-        "cheapest_window": "Cheapest window",
-        "fixed": "Fixed start",
-        "price_below": "Below price ceiling",
-        "advice_use": "Recommended hours (use)"
       }
     }
   },
