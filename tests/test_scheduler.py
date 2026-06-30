@@ -78,6 +78,21 @@ def test_cheapest_window_picks_two_cheapest_before_deadline():
     assert res.run_now is False
 
 
+def test_cheapest_window_ignores_stop_at():
+    # ready_by bounds the window; a (stale) stop_at must not clip cheapest_window.
+    now = datetime(2026, 6, 28, 21, 30, tzinfo=PL)
+    hours = [_row(22, 0.4), _row(23, 0.7), _row(0, 0.3, day=29)]
+    res = plan_run(
+        mode=MODE_CHEAPEST_WINDOW,
+        now=now,
+        hours=hours,
+        ready_by=time(6, 0),
+        stop_at=time(23, 0),  # would clip to before 23:00 if honoured
+        duration_h=2,
+    )
+    assert sorted(s.hour for s in res.selected_starts) == [0, 22]
+
+
 def test_cheapest_window_run_now_true_when_current_hour_selected():
     now = datetime(2026, 6, 29, 5, 10, tzinfo=PL)
     hours = [_row(5, 0.2, day=29), _row(6, 0.9, day=29)]

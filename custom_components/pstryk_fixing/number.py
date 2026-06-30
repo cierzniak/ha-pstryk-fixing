@@ -85,6 +85,10 @@ class PstrykDurationNumber(_PstrykLoadNumber):
     def _coerce(self, value: float) -> int:
         return int(value)
 
+    @property
+    def native_value(self) -> int:
+        return int(self._load.duration_h)
+
 
 class PstrykPriceCeilingNumber(_PstrykLoadNumber):
     """Run while the buy price is at or below this ceiling (price_below mode)."""

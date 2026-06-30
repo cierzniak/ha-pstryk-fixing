@@ -160,8 +160,9 @@ def plan_run(
 ) -> ScheduleResult:
     """Pick the hours a load should run, given its mode and parameters."""
     if mode == MODE_CHEAPEST_WINDOW:
+        # "ready_by" already bounds the window, so this mode ignores stop_at on
+        # purpose (the card does not expose a stop here either).
         end = _resolve(now, ready_by) if ready_by else None
-        stop = _resolve(now, stop_at) if stop_at else None
         floor = now.replace(minute=0, second=0, microsecond=0)
         pool = [
             r
@@ -169,7 +170,6 @@ def plan_run(
             if r.price is not None
             and r.start >= floor
             and (end is None or r.start < end)
-            and (stop is None or r.start < stop)
         ]
         pool.sort(key=lambda r: (r.price, r.start))
         return _result(pool[: max(duration_h, 0)], now)

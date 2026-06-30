@@ -17,7 +17,7 @@
  *   title: Pstryk - wskazówki na dziś
  */
 
-const CARD_VERSION = "0.2.4";
+const CARD_VERSION = "0.2.5";
 
 const LABELS = { use: "Używaj", neutral: "Neutralnie", limit: "Ogranicz" };
 
@@ -477,16 +477,23 @@ class PstrykFixingSchedulerCard extends HTMLElement {
 
   _numCtl(label, entity, step, min, max, unit) {
     if (!entity) return "";
+    // For a whole-number step (e.g. duration) drop the ".0" the number entity
+    // reports, so the field shows "5" not "5,0".
+    let val = this._numVal(entity);
+    if (val !== "" && Number(step) % 1 === 0) {
+      val = String(Math.round(Number(val)));
+    }
     return `<label class="pf-ctl"><span>${esc(label)}</span>
-      <input class="pf-input" type="number" step="${esc(step)}" min="${esc(min)}" max="${esc(max)}" data-entity="${esc(entity)}" data-kind="number" value="${esc(this._numVal(entity))}"><small>${esc(unit || "")}</small></label>`;
+      <input class="pf-input" type="number" step="${esc(step)}" min="${esc(min)}" max="${esc(max)}" data-entity="${esc(entity)}" data-kind="number" value="${esc(val)}"><small>${esc(unit || "")}</small></label>`;
   }
 
   _controls(mode, r) {
     if (mode === "cheapest_window") {
+      // "Gotowe do" (by when the load must be done) already bounds the window,
+      // so this mode has no separate stop.
       return (
         this._timeCtl("Gotowe do", r.ready_by) +
-        this._numCtl("Czas (h)", r.duration, 1, 1, 12, "") +
-        this._timeCtl("Stop (opc.)", r.stop_at)
+        this._numCtl("Czas (h)", r.duration, 1, 1, 12, "")
       );
     }
     if (mode === "fixed") {
