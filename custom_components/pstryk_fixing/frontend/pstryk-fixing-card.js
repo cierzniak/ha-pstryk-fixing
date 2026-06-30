@@ -17,7 +17,7 @@
  *   title: Pstryk - wskazówki na dziś
  */
 
-const CARD_VERSION = "0.2.5";
+const CARD_VERSION = "0.2.6";
 
 const LABELS = { use: "Używaj", neutral: "Neutralnie", limit: "Ogranicz" };
 
@@ -50,12 +50,6 @@ const next24Hours = (today, tomorrow) => {
   return slots;
 };
 
-/** True if the hour row is the one in progress right now. */
-const isNowHour = (h) => {
-  const t = Date.parse(h.startsAt);
-  return !Number.isNaN(t) && t <= Date.now() && Date.now() < t + 3600000;
-};
-
 /** A "?" cell for an hour whose data is not available yet. */
 const EMPTY_CELL = `<div class="pf-cell pf-empty"><span class="pf-hr">?</span><span class="pf-prices"><span class="pf-buy">?</span></span></div>`;
 
@@ -81,7 +75,6 @@ const hourCell = (h, { extra = [], title = "", showSell = true } = {}) => {
     "pf-cell",
     `pf-${advice}`,
     showSell && h.sell === true ? "pf-sell" : "",
-    isNowHour(h) ? "pf-now" : "",
     ...extra,
   ]
     .filter(Boolean)
@@ -113,7 +106,6 @@ const CELL_CSS = `
   .pf-neutral { --pf:var(--secondary-text-color, #9e9e9e); --pf-rgb:144,144,144; }
   .pf-limit { --pf:var(--error-color, #e53935); --pf-rgb:var(--rgb-error-color, 229,57,53); }
   .pf-sell { box-shadow:inset 0 -3px 0 var(--info-color, #2196f3); }
-  .pf-now { border-color:var(--primary-color, var(--primary-text-color)); }
   .pf-picked { border-color:var(--primary-color); box-shadow:0 0 0 2px var(--primary-color) inset; }
   .pf-empty { background:rgba(var(--rgb-disabled-text-color, 189,189,189), .08); }
   .pf-empty .pf-hr, .pf-empty .pf-buy { color:var(--disabled-text-color, #9e9e9e); }`;
@@ -475,16 +467,17 @@ class PstrykFixingSchedulerCard extends HTMLElement {
       <select class="pf-input" data-entity="${esc(entity)}" data-kind="time">${opts.join("")}</select></label>`;
   }
 
-  _numCtl(label, entity, step, min, max, unit) {
+  _numCtl(label, entity, step, min, max) {
     if (!entity) return "";
     // For a whole-number step (e.g. duration) drop the ".0" the number entity
-    // reports, so the field shows "5" not "5,0".
+    // reports, so the field shows "5" not "5,0". The unit lives in the label
+    // (no sub-line) so every control aligns on one baseline.
     let val = this._numVal(entity);
     if (val !== "" && Number(step) % 1 === 0) {
       val = String(Math.round(Number(val)));
     }
     return `<label class="pf-ctl"><span>${esc(label)}</span>
-      <input class="pf-input" type="number" step="${esc(step)}" min="${esc(min)}" max="${esc(max)}" data-entity="${esc(entity)}" data-kind="number" value="${esc(val)}"><small>${esc(unit || "")}</small></label>`;
+      <input class="pf-input" type="number" step="${esc(step)}" min="${esc(min)}" max="${esc(max)}" data-entity="${esc(entity)}" data-kind="number" value="${esc(val)}"></label>`;
   }
 
   _controls(mode, r) {
@@ -493,7 +486,7 @@ class PstrykFixingSchedulerCard extends HTMLElement {
       // so this mode has no separate stop.
       return (
         this._timeCtl("Gotowe do", r.ready_by) +
-        this._numCtl("Czas (h)", r.duration, 1, 1, 12, "")
+        this._numCtl("Czas (h)", r.duration, 1, 1, 12)
       );
     }
     if (mode === "fixed") {
@@ -501,7 +494,7 @@ class PstrykFixingSchedulerCard extends HTMLElement {
     }
     if (mode === "price_below") {
       return (
-        this._numCtl("Próg", r.price_ceiling, 0.05, 0, 5, "zł/kWh") +
+        this._numCtl("Próg (zł/kWh)", r.price_ceiling, 0.05, 0, 5) +
         this._timeCtl("Stop (opc.)", r.stop_at)
       );
     }
@@ -601,8 +594,7 @@ class PstrykFixingSchedulerCard extends HTMLElement {
           .pf-sched { padding:10px 16px 2px; display:flex; flex-wrap:wrap; gap:12px; align-items:flex-end; }
           .pf-ctl { display:flex; flex-direction:column; gap:3px; font-size:.72rem; color:var(--secondary-text-color); }
           .pf-ctl > span { text-transform:uppercase; letter-spacing:.03em; }
-          .pf-ctl small { color:var(--secondary-text-color); font-size:.66rem; }
-          .pf-input { font:inherit; padding:4px 6px; border-radius:6px; border:1px solid var(--divider-color, #ccc); background:var(--card-background-color); color:var(--primary-text-color); }
+          .pf-input { font:inherit; padding:4px 6px; border-radius:6px; border:1px solid var(--divider-color, #ccc); background:var(--card-background-color); color:var(--primary-text-color); box-sizing:border-box; min-height:32px; }
           .pf-enable { flex-direction:row; align-items:center; gap:6px; }
           ${CELL_CSS}
           .pf-counts { padding:10px 16px; font-size:.84rem; color:var(--secondary-text-color); }
