@@ -17,7 +17,7 @@
  *   title: Pstryk - wskazówki na dziś
  */
 
-const CARD_VERSION = "0.2.3";
+const CARD_VERSION = "0.2.4";
 
 const LABELS = { use: "Używaj", neutral: "Neutralnie", limit: "Ogranicz" };
 
@@ -460,8 +460,19 @@ class PstrykFixingSchedulerCard extends HTMLElement {
 
   _timeCtl(label, entity) {
     if (!entity) return "";
+    // Fixing is hourly, so minutes are meaningless: offer an hour picker
+    // (00:00-23:00) instead of a HH:MM input. The empty option keeps an
+    // unset/unknown time showing "--" without forcing a value.
+    const curHour = this._timeVal(entity).slice(0, 2);
+    const opts = [`<option value=""${curHour ? "" : " selected"}>--</option>`];
+    for (let h = 0; h < 24; h++) {
+      const hh = String(h).padStart(2, "0");
+      opts.push(
+        `<option value="${hh}"${hh === curHour ? " selected" : ""}>${hh}:00</option>`,
+      );
+    }
     return `<label class="pf-ctl"><span>${esc(label)}</span>
-      <input class="pf-input" type="time" data-entity="${esc(entity)}" data-kind="time" value="${esc(this._timeVal(entity))}"></label>`;
+      <select class="pf-input" data-entity="${esc(entity)}" data-kind="time">${opts.join("")}</select></label>`;
   }
 
   _numCtl(label, entity, step, min, max, unit) {
@@ -474,7 +485,7 @@ class PstrykFixingSchedulerCard extends HTMLElement {
     if (mode === "cheapest_window") {
       return (
         this._timeCtl("Gotowe do", r.ready_by) +
-        this._numCtl("Czas", r.duration, 1, 1, 12, "h") +
+        this._numCtl("Czas (h)", r.duration, 1, 1, 12, "") +
         this._timeCtl("Stop (opc.)", r.stop_at)
       );
     }
@@ -567,7 +578,7 @@ class PstrykFixingSchedulerCard extends HTMLElement {
     const modeCtl = `<label class="pf-ctl"><span>Tryb</span>
         <select class="pf-input" data-entity="${esc(r.mode)}" data-kind="mode">${modeOptions}</select></label>`;
     const enableCtl = r.schedule
-      ? `<label class="pf-ctl pf-enable"><input type="checkbox" data-entity="${esc(r.schedule)}" data-kind="enable"${enabled ? " checked" : ""}><span>Harmonogram</span></label>`
+      ? `<label class="pf-ctl pf-enable"><input type="checkbox" data-entity="${esc(r.schedule)}" data-kind="enable"${enabled ? " checked" : ""}><span>Aktywny</span></label>`
       : "";
 
     this.innerHTML = `
@@ -617,7 +628,13 @@ class PstrykFixingSchedulerCard extends HTMLElement {
       });
     } else if (kind === "time") {
       if (!el.value) return;
-      const time = el.value.length === 5 ? `${el.value}:00` : el.value;
+      // The control is an hour picker ("HH"); the time entity wants HH:MM:SS.
+      const time =
+        el.value.length === 2
+          ? `${el.value}:00:00`
+          : el.value.length === 5
+            ? `${el.value}:00`
+            : el.value;
       hass.callService("time", "set_value", { entity_id: entity, time });
     } else if (kind === "number") {
       hass.callService("number", "set_value", {
