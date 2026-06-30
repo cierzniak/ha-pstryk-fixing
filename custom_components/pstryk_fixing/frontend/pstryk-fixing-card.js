@@ -17,7 +17,7 @@
  *   title: Pstryk - wskazówki na dziś
  */
 
-const CARD_VERSION = "0.2.6";
+const CARD_VERSION = "0.2.0";
 
 const LABELS = { use: "Używaj", neutral: "Neutralnie", limit: "Ogranicz" };
 
