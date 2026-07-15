@@ -17,7 +17,7 @@
  *   title: Pstryk - wskazówki na dziś
  */
 
-const CARD_VERSION = "0.2.0";
+const CARD_VERSION = "0.2.1";
 
 const LABELS = { use: "Używaj", neutral: "Neutralnie", limit: "Ogranicz" };
 
@@ -336,6 +336,22 @@ const SCHED_MODES = {
 
 const UNAVAIL = ["unknown", "unavailable", ""];
 
+/**
+ * The element that truly has focus, piercing shadow roots. `document.activeElement`
+ * only reports the outermost shadow host, so a native `<select>` the user has open
+ * inside this card (which lives deep in Home Assistant's shadow DOM) is invisible
+ * to it. Without this, the "don't clobber the field being edited" guard in
+ * `set hass` never matches, every state tick re-renders, and the open dropdown is
+ * destroyed before the choice registers (the click appears to "un-click itself").
+ */
+const deepActiveElement = () => {
+  let el = document.activeElement;
+  while (el && el.shadowRoot && el.shadowRoot.activeElement) {
+    el = el.shadowRoot.activeElement;
+  }
+  return el;
+};
+
 class PstrykFixingSchedulerCard extends HTMLElement {
   setConfig(config) {
     // Tolerate an empty config so the visual editor preview can show a hint
@@ -345,8 +361,11 @@ class PstrykFixingSchedulerCard extends HTMLElement {
 
   set hass(hass) {
     this._hass = hass;
-    // Avoid clobbering a field the user is actively editing.
-    const a = document.activeElement;
+    // Avoid clobbering a control the user is actively editing (an open <select>
+    // dropdown especially). Must pierce shadow DOM: document.activeElement stops
+    // at HA's outer shadow host and would never match this card's own <select>,
+    // so the guard would be dead and every state tick would destroy the dropdown.
+    const a = deepActiveElement();
     if (this.contains(a) && /INPUT|SELECT/.test(a.tagName)) return;
     this._render();
   }
