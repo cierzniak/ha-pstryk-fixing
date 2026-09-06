@@ -13,7 +13,7 @@ from collections.abc import Callable
 from datetime import time
 from typing import Any
 
-from homeassistant.core import HomeAssistant
+from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.dispatcher import async_dispatcher_send
 from homeassistant.helpers.event import async_track_time_change
 from homeassistant.util import dt as dt_util
@@ -58,7 +58,15 @@ class LoadScheduler:
 
         return _unsub
 
+    @callback
     def _tick(self, _now: Any) -> None:
+        """Recompute on the hour boundary.
+
+        Must stay a callback: an undecorated sync target makes HassJob pick
+        HassJobType.Executor, and the dispatcher send in recompute() then runs
+        off the event loop, which Home Assistant rejects for a custom
+        integration. The plan would be recomputed and never published.
+        """
         self.recompute()
 
     def set_param(self, name: str, value: Any) -> None:
