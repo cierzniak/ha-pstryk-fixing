@@ -1,0 +1,49 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*.*.*"]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: publish
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Check the manifest version matches the tag
+        run: |
+          tag="${GITHUB_REF_NAME#v}"
+          manifest=$(python3 -c 'import json; print(json.load(open("custom_components/pstryk_fixing/manifest.json"))["version"])')
+          if [ "$tag" != "$manifest" ]; then
+            echo "::error::tag $GITHUB_REF_NAME does not match manifest version $manifest"
+            exit 1
+          fi
+
+      - name: Publish the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # An annotated tag carries the hand-written notes; a lightweight tag
+          # falls back to the notes GitHub derives from the merged commits.
+          # %(contents) dereferences a lightweight tag to its commit message,
+          # so only read it when the ref really is a tag object.
+          notes=""
+          if [ "$(git cat-file -t "$GITHUB_REF_NAME")" = "tag" ]; then
+            notes=$(git tag -l --format='%(contents)' "$GITHUB_REF_NAME")
+          fi
+          if [ -n "${notes//[[:space:]]/}" ]; then
+            printf '%s\n' "$notes" > "$RUNNER_TEMP/notes.md"
+            gh release create "$GITHUB_REF_NAME" \
+              --title "$GITHUB_REF_NAME" \
+              --notes-file "$RUNNER_TEMP/notes.md"
+          else
+            gh release create "$GITHUB_REF_NAME" \
+              --title "$GITHUB_REF_NAME" \
+              --generate-notes
+          fi
