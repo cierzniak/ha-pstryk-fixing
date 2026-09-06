@@ -13,8 +13,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
-        with:
-          fetch-depth: 0
 
       - name: Check the manifest version matches the tag
         run: |
@@ -31,12 +29,26 @@ jobs:
         run: |
           # An annotated tag carries the hand-written notes; a lightweight tag
           # falls back to the notes GitHub derives from the merged commits.
-          # %(contents) dereferences a lightweight tag to its commit message,
-          # so only read it when the ref really is a tag object.
+          #
+          # The tag is read through the API rather than through git on purpose.
+          # actions/checkout re-points refs/tags/<tag> straight at the commit
+          # (fetch --no-tags origin +<sha>:refs/tags/<tag>), which clobbers the
+          # annotated tag object it fetched a moment earlier, so git cat-file
+          # reports "commit" for every tag and the hand-written notes were never
+          # reachable from the work tree.
+          #
+          # Create annotated tags with --cleanup=verbatim. Without it git treats
+          # every line starting with '#' as a comment and silently drops the
+          # markdown headings from the message.
+          ref=$(gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$GITHUB_REF_NAME")
+          tag_type=$(printf '%s' "$ref" | jq -r '.object.type')
+          tag_sha=$(printf '%s' "$ref" | jq -r '.object.sha')
+
           notes=""
-          if [ "$(git cat-file -t "$GITHUB_REF_NAME")" = "tag" ]; then
-            notes=$(git tag -l --format='%(contents)' "$GITHUB_REF_NAME")
+          if [ "$tag_type" = "tag" ]; then
+            notes=$(gh api "repos/$GITHUB_REPOSITORY/git/tags/$tag_sha" --jq '.message')
           fi
+
           if [ -n "${notes//[[:space:]]/}" ]; then
             printf '%s\n' "$notes" > "$RUNNER_TEMP/notes.md"
             gh release create "$GITHUB_REF_NAME" \
