@@ -185,7 +185,20 @@ def plan_run(
 
     if mode in (MODE_PRICE_BELOW, MODE_ADVICE_USE):
         floor = now.replace(minute=0, second=0, microsecond=0)
-        stop = _resolve(now, stop_at) if stop_at else None
+        # A stop is a daily cutoff, not a rolling deadline. After it, remain
+        # off until the next local day instead of silently extending to tomorrow.
+        stop = (
+            now.replace(
+                hour=stop_at.hour,
+                minute=stop_at.minute,
+                second=stop_at.second,
+                microsecond=0,
+            )
+            if stop_at
+            else None
+        )
+        if stop is not None and now >= stop:
+            return ScheduleResult()
 
         def _match(r: HourRow) -> bool:
             if mode == MODE_PRICE_BELOW:
