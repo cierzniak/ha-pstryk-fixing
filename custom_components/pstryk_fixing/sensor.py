@@ -90,7 +90,7 @@ class PstrykCurrentPriceSensor(_PstrykSensorBase):
             "operator": data.get("operator"),
             "tariff": data.get("tariff"),
             "thresholds": data.get("thresholds"),
-            "now": data.get("now"),
+            "now": self.coordinator.now_block(),
             "today": today.get("hours"),
             "today_summary": today.get("summary"),
             "tomorrow": tomorrow.get("hours") if isinstance(tomorrow, dict) else None,
