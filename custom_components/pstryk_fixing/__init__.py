@@ -109,11 +109,13 @@ async def async_setup_entry(hass: HomeAssistant, entry: PstrykConfigEntry) -> bo
             continue
         load = LoadScheduler(hass, coordinator, subentry_id, dict(subentry.data))
         coordinator.loads[subentry_id] = load
-        entry.async_on_unload(load.async_start())
+        await load.async_restore()
 
     entry.runtime_data = coordinator
     entry.async_on_unload(entry.add_update_listener(_async_reload_entry))
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
+    for load in coordinator.loads.values():
+        entry.async_on_unload(load.async_start())
     return True
 
 
@@ -124,4 +126,8 @@ async def _async_reload_entry(hass: HomeAssistant, entry: PstrykConfigEntry) -> 
 
 async def async_unload_entry(hass: HomeAssistant, entry: PstrykConfigEntry) -> bool:
     """Unload a config entry."""
-    return await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
+    unloaded = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
+    if unloaded:
+        for load in entry.runtime_data.loads.values():
+            await load.async_save()
+    return unloaded
