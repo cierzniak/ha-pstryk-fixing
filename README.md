@@ -17,7 +17,8 @@ rozładować / sprzedać do sieci (wysoka cena odkupu).
 
 ## Wymagania
 
-- Home Assistant `2024.8` lub nowszy.
+- Home Assistant `2025.3` lub nowszy (API podwpisów konfiguracji jest wymagane
+  przez całą integrację, również bez dodanych odbiorników).
 - Dostęp sieciowy do `https://dynamiczne.info` (publiczne API; bez konta, bez klucza).
 
 ## Instalacja (HACS)
@@ -98,7 +99,8 @@ Integracja zostaje cienka: nie steruje urządzeniem bezpośrednio, tylko wystawi
 `uruchom teraz` (binary_sensor) oraz `zaplanowany start` (znacznik czasu). Faktycznym
 włączeniem urządzenia zajmuje się Twoja automatyzacja (jest gotowy blueprint, niżej).
 
-> Podwpisy (subentries) wymagają **Home Assistant 2025.3** lub nowszego.
+> Minimalna wersja dla całej integracji, w tym podwpisów (subentries), to
+> **Home Assistant 2025.3**.
 
 ### Tryby
 
