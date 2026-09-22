@@ -15,13 +15,14 @@ from typing import Any
 
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.dispatcher import async_dispatcher_send
-from homeassistant.helpers.event import async_track_time_change
+from homeassistant.helpers.event import async_track_point_in_utc_time
 from homeassistant.helpers.storage import Store
 from homeassistant.util import dt as dt_util
 
 from .const import DEFAULT_DURATION, DEFAULT_MODE, DOMAIN, SIGNAL_LOAD
 from .coordinator import PstrykOutlookCoordinator
 from .cycle import CheapestCycle
+from .schedule_time import next_schedule_tick
 from .scheduler import MODE_CHEAPEST_WINDOW, ScheduleResult, merge_hours, plan_run
 
 
@@ -47,6 +48,7 @@ class LoadScheduler:
         self.duration_h: int = DEFAULT_DURATION
         self.price_ceiling: float | None = None
         self.result: ScheduleResult = ScheduleResult()
+        self._unsub_tick: Callable[[], None] | None = None
         self._ready = False
         self._cycle = CheapestCycle()
         self._store: Store[dict[str, Any]] = Store(
@@ -62,29 +64,46 @@ class LoadScheduler:
         await self._store.async_save(self._cycle.as_dict())
 
     def async_start(self) -> Callable[[], None]:
-        """Subscribe to price refreshes and the hour boundary; return an unsub."""
+        """Subscribe to prices and exact schedule boundaries; return an unsub."""
         self._ready = True
         unsub_coord = self.coordinator.async_add_listener(self.recompute)
-        unsub_tick = async_track_time_change(self.hass, self._tick, minute=0, second=10)
         self.recompute()
 
         def _unsub() -> None:
             self._ready = False
             unsub_coord()
-            unsub_tick()
+            if self._unsub_tick is not None:
+                self._unsub_tick()
+                self._unsub_tick = None
 
         return _unsub
 
     @callback
     def _tick(self, _now: Any) -> None:
-        """Recompute on the hour boundary.
+        """Recompute at the next schedule boundary.
 
         Must stay a callback: an undecorated sync target makes HassJob pick
         HassJobType.Executor, and the dispatcher send in recompute() then runs
         off the event loop, which Home Assistant rejects for a custom
         integration. The plan would be recomputed and never published.
         """
+        self._unsub_tick = None
         self.recompute()
+
+    def _schedule_tick(self) -> None:
+        """Replace the old timer after a parameter change or price update."""
+        if not self._ready:
+            return
+        if self._unsub_tick is not None:
+            self._unsub_tick()
+        when = next_schedule_tick(
+            dt_util.now(),
+            ready_by=self.ready_by,
+            start_at=self.start_at,
+            stop_at=self.stop_at,
+            selected_starts=self.result.selected_starts,
+        )
+        self._unsub_tick = async_track_point_in_utc_time(self.hass, self._tick, when)
 
     def set_param(self, name: str, value: Any) -> None:
         """Set a parameter from an input entity and recompute."""
@@ -120,4 +139,5 @@ class LoadScheduler:
                 duration_h=self.duration_h,
                 price_ceiling=self.price_ceiling,
             )
+        self._schedule_tick()
         async_dispatcher_send(self.hass, self.signal)

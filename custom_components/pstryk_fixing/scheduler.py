@@ -78,7 +78,9 @@ def merge_hours(data: dict[str, Any] | None) -> list[HourRow]:
 
 def _resolve(now: datetime, t: dt_time) -> datetime:
     """Concrete datetime at local time ``t`` in now's tz; if not after now, next day."""
-    candidate = now.replace(hour=t.hour, minute=t.minute, second=0, microsecond=0)
+    candidate = now.replace(
+        hour=t.hour, minute=t.minute, second=t.second, microsecond=0
+    )
     if candidate <= now:
         candidate += timedelta(days=1)
     return candidate
@@ -117,13 +119,19 @@ def _resolve_block(
 ) -> tuple[datetime, datetime]:
     """Return (start_dt, stop_dt) for the fixed block around now, overnight-aware."""
     start_dt = now.replace(
-        hour=start_at.hour, minute=start_at.minute, second=0, microsecond=0
+        hour=start_at.hour,
+        minute=start_at.minute,
+        second=start_at.second,
+        microsecond=0,
     )
     if stop_at is None:
         stop_dt = start_dt + timedelta(hours=1)
     else:
         stop_dt = now.replace(
-            hour=stop_at.hour, minute=stop_at.minute, second=0, microsecond=0
+            hour=stop_at.hour,
+            minute=stop_at.minute,
+            second=stop_at.second,
+            microsecond=0,
         )
         if stop_dt <= start_dt:  # overnight: stop is the next day
             stop_dt += timedelta(days=1)
