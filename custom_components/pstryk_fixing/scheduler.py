@@ -8,7 +8,7 @@ spinning up hass; the HA-coupled runtime (load_scheduler.py) delegates here.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from datetime import time as dt_time
 from typing import Any
 
@@ -138,6 +138,15 @@ def _resolve_block(
     if stop_dt <= now:  # whole block already in the past: roll to next day
         start_dt += timedelta(days=1)
         stop_dt += timedelta(days=1)
+    # Before today's start, yesterday's overnight block may still be active.
+    previous_start = start_dt - timedelta(days=1)
+    previous_stop = stop_dt - timedelta(days=1)
+    if (
+        previous_start.astimezone(UTC)
+        <= now.astimezone(UTC)
+        < previous_stop.astimezone(UTC)
+    ):
+        return previous_start, previous_stop
     return start_dt, stop_dt
 
 
@@ -147,9 +156,11 @@ def _block_hours(
     """Whole-hour starts within the block; reuse real rows when present."""
     by_start = {r.start: r for r in hours}
     out: list[HourRow] = []
-    cursor = start_dt
-    while cursor < stop_dt:
-        out.append(by_start.get(cursor, HourRow(cursor, None, None)))
+    # Advance elapsed hours, retaining both occurrences of a repeated DST hour.
+    cursor = start_dt.astimezone(UTC)
+    while cursor < stop_dt.astimezone(UTC):
+        local_start = cursor.astimezone(start_dt.tzinfo)
+        out.append(by_start.get(cursor, HourRow(local_start, None, None)))
         cursor += timedelta(hours=1)
     return out
 
@@ -185,7 +196,9 @@ def plan_run(
     if mode == MODE_FIXED and start_at is not None:
         start_dt, stop_dt = _resolve_block(now, start_at, stop_at)
         selected = _block_hours(start_dt, stop_dt, hours)
-        run_now = start_dt <= now < stop_dt
+        run_now = (
+            start_dt.astimezone(UTC) <= now.astimezone(UTC) < stop_dt.astimezone(UTC)
+        )
         starts = tuple(r.start for r in selected)
         total, avg = _summary(selected)
         planned = now if run_now else start_dt
