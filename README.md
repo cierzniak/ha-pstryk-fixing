@@ -104,7 +104,7 @@ włączeniem urządzenia zajmuje się Twoja automatyzacja (jest gotowy blueprint
 
 | Tryb | Co robi | Parametry |
 |---|---|---|
-| `cheapest_window` (Najtańsze okno) | Wybiera N najtańszych godzin w oknie do "gotowe do" | `Gotowe do`, `Czas pracy`, opcjonalnie `Stop` |
+| `cheapest_window` (Najtańsze okno) | Wybiera łącznie do N godzin w cyklu do "gotowe do" | `Gotowe do`, `Czas pracy` |
 | `fixed` (Sztywny start) | Blok pracy od "start o" (do "stop o", jeśli ustawione - inaczej jedna godzina) | `Start o`, opcjonalnie `Stop o` |
 | `price_below` (Poniżej progu ceny) | Każda nadchodząca godzina z ceną kupna `<=` próg | `Próg ceny`, opcjonalnie `Stop` |
 | `advice_use` (Godziny zalecane) | Godziny z serwerową rekomendacją `use` | opcjonalnie `Stop` |
@@ -131,6 +131,15 @@ Każdy odbiornik to osobne urządzenie. Nazwy encji pochodzą od nazwy odbiornik
 | `sensor.<odbiornik>_zaplanowany_start` | Najbliższy zaplanowany start. Atrybuty: `selected_hours`, `selected_count`, `total_price`, `avg_price`, `mode`, `enabled` |
 
 ### Karta harmonogramu
+
+Tryb `cheapest_window` pamięta rozpoczęte godziny i nie przyznaje nowego budżetu
+przy każdym odświeżeniu. Cykl kończy się o `Gotowe do` (bez tej wartości: o północy)
+i wtedy zaczyna się kolejny. Przyszłe godziny mogą zmienić się po publikacji cen,
+ale już rozpoczęte nadal wliczają się do limitu, również po restarcie lub pauzie.
+Zmiana `Czasu pracy` albo `Gotowe do` rozpoczyna nowy cykl; samo wyłączenie/włączenie
+harmonogramu go nie resetuje. To budżet godzinowych przedziałów, nie pomiar czasu
+faktycznej pracy urządzenia. Godzina rozpoczęta częściowo liczy się jako jeden
+przedział; wybierane przedziały muszą kończyć się przed deadline.
 
 ```yaml
 type: custom:pstryk-fixing-scheduler-card

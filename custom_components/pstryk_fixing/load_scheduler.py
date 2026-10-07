@@ -16,11 +16,13 @@ from typing import Any
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.dispatcher import async_dispatcher_send
 from homeassistant.helpers.event import async_track_time_change
+from homeassistant.helpers.storage import Store
 from homeassistant.util import dt as dt_util
 
-from .const import DEFAULT_DURATION, DEFAULT_MODE, SIGNAL_LOAD
+from .const import DEFAULT_DURATION, DEFAULT_MODE, DOMAIN, SIGNAL_LOAD
 from .coordinator import PstrykOutlookCoordinator
-from .scheduler import ScheduleResult, merge_hours, plan_run
+from .cycle import CheapestCycle
+from .scheduler import MODE_CHEAPEST_WINDOW, ScheduleResult, merge_hours, plan_run
 
 
 class LoadScheduler:
@@ -45,14 +47,29 @@ class LoadScheduler:
         self.duration_h: int = DEFAULT_DURATION
         self.price_ceiling: float | None = None
         self.result: ScheduleResult = ScheduleResult()
+        self._ready = False
+        self._cycle = CheapestCycle()
+        self._store: Store[dict[str, Any]] = Store(
+            hass, 1, f"{DOMAIN}.load_cycle.{subentry_id}"
+        )
+
+    async def async_restore(self) -> None:
+        """Restore the cycle before input entities finish restoring parameters."""
+        self._cycle = CheapestCycle.from_dict(await self._store.async_load())
+
+    async def async_save(self) -> None:
+        """Flush the latest budget when the config entry is unloaded."""
+        await self._store.async_save(self._cycle.as_dict())
 
     def async_start(self) -> Callable[[], None]:
         """Subscribe to price refreshes and the hour boundary; return an unsub."""
+        self._ready = True
         unsub_coord = self.coordinator.async_add_listener(self.recompute)
         unsub_tick = async_track_time_change(self.hass, self._tick, minute=0, second=10)
         self.recompute()
 
         def _unsub() -> None:
+            self._ready = False
             unsub_coord()
             unsub_tick()
 
@@ -76,8 +93,22 @@ class LoadScheduler:
 
     def recompute(self) -> None:
         """Recompute the plan and notify the load's entities."""
+        # All restore entities must finish before a default value can create
+        # or reset the persisted cycle, or publish a transient run signal.
+        if not self._ready:
+            return
         if not self.enabled:
             self.result = ScheduleResult()
+        elif self.mode == MODE_CHEAPEST_WINDOW:
+            before = self._cycle.as_dict()
+            self.result = self._cycle.plan(
+                dt_util.now(),
+                merge_hours(self.coordinator.data),
+                self.ready_by,
+                self.duration_h,
+            )
+            if before != self._cycle.as_dict():
+                self._store.async_delay_save(self._cycle.as_dict, 1)
         else:
             self.result = plan_run(
                 mode=self.mode,
