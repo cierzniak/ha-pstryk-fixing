@@ -115,6 +115,11 @@ oznacza okno przez północ (np. `22:00 -> 06:00`). Plan na noc zależy od cen j
 
 ### Encje odbiornika
 
+W trybach `price_below` i `advice_use` ustawiony `Stop` jest codzienną godziną
+graniczną: od tej chwili odbiornik pozostaje wyłączony do północy, również po
+odświeżeniu cen lub restarcie. Po północy warunki ceny/rekomendacji znów obowiązują
+do kolejnego dziennego limitu. Bez `Stop` te tryby działają przez całą dobę.
+
 Każdy odbiornik to osobne urządzenie. Nazwy encji pochodzą od nazwy odbiornika
 (np. `Ładowarka` -> `..._ladowarka_...`):
 
@@ -124,7 +129,7 @@ Każdy odbiornik to osobne urządzenie. Nazwy encji pochodzą od nazwy odbiornik
 | `select.<odbiornik>_tryb` | Tryb (jeden z czterech powyżej) |
 | `time.<odbiornik>_gotowe_do` | Deadline "gotowe do" (tryb okna) |
 | `time.<odbiornik>_start_o` | Sztywny start (tryb fixed) |
-| `time.<odbiornik>_stop_o` | Twardy stop (opcjonalny, działa we wszystkich trybach) |
+| `time.<odbiornik>_stop_o` | Koniec bloku `fixed` lub dzienny limit w `price_below` / `advice_use`; nie dotyczy `cheapest_window` |
 | `number.<odbiornik>_czas_pracy_godziny` | Ile godzin pracy (tryb okna) |
 | `number.<odbiornik>_prog_ceny` | Próg PLN/kWh (tryb progu) |
 | `binary_sensor.<odbiornik>_uruchom_teraz` | **Sygnał startu** - tu wpinasz automatyzację |
