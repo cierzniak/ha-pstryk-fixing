@@ -28,8 +28,8 @@ DEFAULT_BASE_URL: Final = "https://dynamiczne.info"
 DEFAULT_INCLUDE_SELL: Final = True
 
 # Day-ahead prices change at most daily; tomorrow is published in the early
-# afternoon. Polling every 30 min keeps the current-hour sensor fresh and picks
-# up tomorrow's prices soon after they appear, without hammering the public API.
+# afternoon. Poll every 30 min for newly published prices; a local hour-boundary
+# callback updates current values from the cache without another API request.
 UPDATE_INTERVAL: Final = timedelta(minutes=30)
 
 # Consumption advice values mirrored from the API (AdviceLevel).

@@ -6,7 +6,8 @@ import logging
 from typing import TYPE_CHECKING, Any
 
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.core import HomeAssistant
+from homeassistant.core import HomeAssistant, callback
+from homeassistant.helpers.event import async_track_utc_time_change
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 from homeassistant.util import dt as dt_util
 
@@ -19,7 +20,7 @@ from .const import (
     DOMAIN,
     UPDATE_INTERVAL,
 )
-from .outlook import extract_now_block, extract_today_summary, resolve_current_hour
+from .outlook import extract_today_summary, resolve_current_hour, resolve_now_block
 
 if TYPE_CHECKING:
     from .load_scheduler import LoadScheduler
@@ -59,9 +60,18 @@ class PstrykOutlookCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         super().__init__(
             hass,
             logger=_LOGGER,
+            config_entry=entry,
             name=f"{DOMAIN} {self.operator}/{self.tariff}",
             update_interval=UPDATE_INTERVAL,
         )
+        entry.async_on_unload(
+            async_track_utc_time_change(hass, self._hour_changed, minute=0, second=0)
+        )
+
+    @callback
+    def _hour_changed(self, _now: Any) -> None:
+        """Publish cached values without changing API polling or availability."""
+        self.async_update_listeners()
 
     def device_info(self) -> dict[str, Any]:
         """Shared device descriptor for every entity of this config entry."""
@@ -83,8 +93,8 @@ class PstrykOutlookCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             raise UpdateFailed(str(err)) from err
 
     def now_block(self) -> dict[str, Any]:
-        """Return the server-computed forward-looking 'now' block (may be empty)."""
-        return extract_now_block(self.data)
+        """Return forward-looking advice evaluated at the current time."""
+        return resolve_now_block(self.data, dt_util.utcnow())
 
     def today_summary(self) -> dict[str, Any]:
         """Return today's aggregate summary (cheapest/dearest hour, counts)."""
