@@ -635,6 +635,11 @@ class PstrykFixingSchedulerCard extends HTMLElement {
     const entity = el.dataset.entity;
     const kind = el.dataset.kind;
     const hass = this._hass;
+    // The edit is committed, so release focus. A native <select> keeps focus
+    // after a pick, and while it does the `set hass` guard skips every render:
+    // a new mode's controls (and the plan grid) would not appear until the user
+    // clicked elsewhere *and* some later state change arrived.
+    el.blur();
     if (kind === "mode") {
       hass.callService("select", "select_option", {
         entity_id: entity,
