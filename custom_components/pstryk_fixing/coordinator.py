@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING, Any
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, callback
+from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.event import async_track_utc_time_change
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 from homeassistant.util import dt as dt_util
@@ -27,18 +28,28 @@ if TYPE_CHECKING:
 
 _LOGGER = logging.getLogger(__name__)
 
+# Newer Home Assistant links a child device through the parent's registry id and
+# deprecates the identifier-tuple `via_device` (removed in 2027.8). The minimum
+# supported release (2025.3) only knows `via_device`, so pick by what DeviceInfo
+# declares.
+_VIA_DEVICE_ID = "via_device_id" in DeviceInfo.__annotations__
+
 
 def load_device_info(
     coordinator: PstrykOutlookCoordinator, subentry_id: str, name: str
 ) -> dict[str, Any]:
     """Device descriptor for a load, linked to its parent tariff device."""
-    return {
+    info: dict[str, Any] = {
         "identifiers": {(DOMAIN, f"load_{subentry_id}")},
         "name": name,
         "manufacturer": "Pstryk Fixing",
         "model": "Load scheduler",
-        "via_device": (DOMAIN, f"{coordinator.operator}_{coordinator.tariff}"),
     }
+    if _VIA_DEVICE_ID:
+        info["via_device_id"] = coordinator.device_id
+    else:
+        info["via_device"] = (DOMAIN, f"{coordinator.operator}_{coordinator.tariff}")
+    return info
 
 
 class PstrykOutlookCoordinator(DataUpdateCoordinator[dict[str, Any]]):
@@ -57,6 +68,9 @@ class PstrykOutlookCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         self.include_sell: bool = entry.data.get(CONF_INCLUDE_SELL, True)
         self.integration_version = integration_version
         self.loads: dict[str, LoadScheduler] = {}
+        # Registry id of the tariff device, set in async_setup_entry before the
+        # platforms load so load devices can name it as their via device.
+        self.device_id: str | None = None
         super().__init__(
             hass,
             logger=_LOGGER,
