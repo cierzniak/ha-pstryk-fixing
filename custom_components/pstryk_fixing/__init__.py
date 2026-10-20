@@ -11,6 +11,7 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import config_validation as cv
+from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.typing import ConfigType
 from homeassistant.loader import async_get_integration
@@ -102,6 +103,16 @@ async def async_setup_entry(hass: HomeAssistant, entry: PstrykConfigEntry) -> bo
         hass, entry, client, str(integration.version)
     )
     await coordinator.async_config_entry_first_refresh()
+    # Register the tariff device up front: load devices link to it by registry
+    # id, and the sensor platform that would otherwise create it may load after
+    # the load platforms.
+    coordinator.device_id = (
+        dr.async_get(hass)
+        .async_get_or_create(
+            config_entry_id=entry.entry_id, **coordinator.device_info()
+        )
+        .id
+    )
 
     coordinator.loads = {}
     for subentry_id, subentry in entry.subentries.items():
