@@ -1,5 +1,57 @@
 # Pstryk Fixing - Home Assistant
 
+> [!WARNING]
+> **To repozytorium nie jest już rozwijane. Integracja nazywa się teraz
+> [dynamiczne.info](https://github.com/cierzniak/ha-dynamiczne-info).**
+>
+> `0.2.5` to ostatnia wersja Pstryk Fixing. Nie wnosi żadnych zmian w działaniu,
+> wyłącznie informuje o przeprowadzce. Nowe funkcje i poprawki trafiają już tylko do
+> [cierzniak/ha-dynamiczne-info](https://github.com/cierzniak/ha-dynamiczne-info)
+> (od wersji `0.3.0`).
+
+## Przejście na dynamiczne.info
+
+Nowa integracja ma inną domenę (`dynamiczne_info` zamiast `pstryk_fixing`), więc Home
+Assistant traktuje ją jak osobną integrację: nie zaktualizuje się sama, trzeba ją
+zainstalować i skonfigurować od nowa.
+
+1. **Zanotuj konfigurację**: operator, taryfa, tryb sprzedaży oraz ustawienia każdego
+   odbiornika (nazwa, tryb, czas pracy, "gotowe do", limit ceny, ...).
+2. **Usuń stare wpisy**: Ustawienia -> Urządzenia i usługi -> *Pstryk Fixing* -> usuń
+   każdy wpis.
+3. **Usuń to repozytorium z HACS**: HACS -> *Pstryk Fixing* -> ⋮ -> **Usuń**, a potem
+   w **Własnych repozytoriach** usuń `https://github.com/cierzniak/ha-pstryk-fixing`.
+   Zrestartuj Home Assistant.
+4. **Dodaj nowe repozytorium**: HACS (od Home Assistant 2026.11: **Ustawienia ->
+   Marketplace**) -> ⋮ -> **Własne repozytoria** -> dodaj
+   `https://github.com/cierzniak/ha-dynamiczne-info` z kategorią **Integration**, albo
+   kliknij:
+
+   [![Otwórz swoją instancję Home Assistant i dodaj repozytorium dynamiczne.info.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=cierzniak&repository=ha-dynamiczne-info&category=integration)
+
+5. **Zainstaluj dynamiczne.info**, zrestartuj Home Assistant, dodaj integrację
+   (Ustawienia -> Urządzenia i usługi -> **Dodaj integrację** -> *dynamiczne.info*)
+   i odtwórz odbiorniki z punktu 1.
+6. **Popraw odwołania** w automatyzacjach, skryptach, szablonach i na dashboardach:
+
+| Było (Pstryk Fixing) | Jest (dynamiczne.info) |
+|---|---|
+| `sensor.pstryk_<operator>_<taryfa>_*` | `sensor.dynamiczne_info_<operator>_<taryfa>_*` |
+| `binary_sensor.pstryk_<operator>_<taryfa>_sell_now` | `binary_sensor.dynamiczne_info_<operator>_<taryfa>_sell_now` |
+| `type: custom:pstryk-fixing-card` | `type: custom:dynamiczne-info-card` |
+| `type: custom:pstryk-fixing-scheduler-card` | `type: custom:dynamiczne-info-scheduler-card` |
+| `integration_entities('pstryk_fixing')` | `integration_entities('dynamiczne_info')` |
+| blueprint `pstryk_fixing/run_load.yaml` | blueprint `dynamiczne_info/run_load.yaml` |
+
+Encje odbiorników biorą ID z nazwy odbiornika, więc jeśli usuniesz stare wpisy (punkt 2)
+przed dodaniem nowych i nadasz odbiornikom te same nazwy, ich ID się nie zmienią.
+Szczegóły: [Migracja z Pstryk Fixing](https://github.com/cierzniak/ha-dynamiczne-info#migracja-z-pstryk-fixing).
+
+---
+
+Poniżej dokumentacja ostatniej wersji Pstryk Fixing (`0.2.5`), dla instalacji, które
+jeszcze nie przeszły na dynamiczne.info.
+
 Integracja Home Assistant **wraz z** kartą Lovelace dla godzinowych cen prądu
 [Pstryk Fixing](https://dynamiczne.info). Wystawia gotową pod automatyzacje
 rekomendację na każdą godzinę: **używaj / ogranicz / sprzedaj**, a od `0.2.0` także
